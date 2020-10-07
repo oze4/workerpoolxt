@@ -1,4 +1,4 @@
-module github.com/oze4/reactor-go
+module github.com/oze4/reactor
 
 go 1.15
 

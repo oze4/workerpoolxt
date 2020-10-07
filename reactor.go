@@ -54,9 +54,10 @@ type Action func(*Client) Reaction
 
 // Reactor knows how to handle jobs
 type Reactor interface {
-	React(single Event)   // React puts a job on the queue
-	Reacts(many Events)   // Overreact allows you to supply multiple Events
-	Reactions() Reactions // Get results
+	React(single Event)       // React puts a job on the queue
+	Reacts(many Events)       // Overreact allows you to supply multiple Events
+	Reactions() Reactions     // Stop workerpool and get results
+	ReactionsWait() Reactions // Wait on results without stopping worker pool, then continue
 }
 
 type reactor struct {

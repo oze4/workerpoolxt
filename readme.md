@@ -22,8 +22,9 @@ func main() {
 	// myreactor := reactor.NewWithClient(numOfWorkers, timeoutForJobs, &reactor.Client{...})
 
 	/**
-	 * Add events one by one. Add as many events one by one that you wish,
-	 * BEFORE calling `reactor.Reactions()`
+	 * Add events one by one. 
+	 *
+	 * Add as many events one by one that you wish, BEFORE calling `myreactor.Reactions()`
 	 */
 
 	reactr.React(reactor.NewEvent("name", func(c *reactor.Client) reactor.Reaction {

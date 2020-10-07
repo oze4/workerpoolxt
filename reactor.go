@@ -35,13 +35,28 @@ func NewWithClient(client *Client, maxWorkers int, jobTimeout time.Duration) Rea
 	}
 }
 
+// NewEvent creates a new event
+func NewEvent(name string, action Action) Event {
+	return Event{
+		Name:   name,
+		Action: action,
+	}
+}
+
 // Reactions holds reactions
 type Reactions []Reaction
 
+// Events holds multiple Event
+type Events []Event
+
+// Action is a func that takes a *Client and returns a Reaction
+type Action func(*Client) Reaction
+
 // Reactor knows how to handle jobs
 type Reactor interface {
-	React(to Event) // React puts a job on the queue
-	Get() Reactions // Get results
+	React(single Event)   // React puts a job on the queue
+	Reacts(many Events)   // Overreact allows you to supply multiple Events
+	Reactions() Reactions // Get results
 }
 
 type reactor struct {
@@ -52,13 +67,20 @@ type reactor struct {
 }
 
 // React submits a job
-func (r *reactor) React(j Event) {
-	r.workerPool.Submit(r.wrapper(j))
+func (r *reactor) React(single Event) {
+	r.workerPool.Submit(r.wrapper(single))
 }
 
-// Get gets results
+// Overreact allows you to supply multiple Events
+func (r *reactor) Reacts(many Events) {
+	for _, e := range many {
+		r.workerPool.Submit(r.wrapper(e))
+	}
+}
+
+// Reactions gets results
 // Only call after you have finished adding jobs
-func (r *reactor) Get() Reactions {
+func (r *reactor) Reactions() Reactions {
 	return r.getResults()
 }
 
@@ -66,19 +88,19 @@ func (r *reactor) getResults() Reactions {
 	r.workerPool.StopWait()
 	close(r.reactions)
 
-	var allReacts []Reaction
+	var reactions Reactions
 	for jobreact := range r.reactions {
-		allReacts = append(allReacts, jobreact)
+		reactions = append(reactions, jobreact)
 	}
 
-	return allReacts
+	return reactions
 }
 
 // worker should be private
-func (r *reactor) worker(ctx context.Context, done context.CancelFunc, job Event, start time.Time) {
-	reaction := job.Action(r.transport)
+func (r *reactor) worker(ctx context.Context, done context.CancelFunc, event Event, start time.Time) {
+	reaction := event.Action(r.transport)
 	reaction.duration = time.Since(start)
-	reaction.name = job.Name
+	reaction.name = event.Name
 
 	if ctx.Err() == nil {
 		r.reactions <- reaction
@@ -88,12 +110,12 @@ func (r *reactor) worker(ctx context.Context, done context.CancelFunc, job Event
 }
 
 // wrapper should be private
-func (r *reactor) wrapper(job Event) func() {
+func (r *reactor) wrapper(event Event) func() {
 	ctx, cancel := context.WithTimeout(context.Background(), r.jobTimeout)
 
 	return func() {
 		start := time.Now()
-		go r.worker(ctx, cancel, job, start)
+		go r.worker(ctx, cancel, event, start)
 
 		select {
 		case <-ctx.Done():
@@ -101,7 +123,7 @@ func (r *reactor) wrapper(job Event) func() {
 			case context.DeadlineExceeded:
 				r.reactions <- Reaction{
 					Error:    context.DeadlineExceeded,
-					name:     job.Name,
+					name:     event.Name,
 					duration: time.Since(start),
 				}
 			}
@@ -136,5 +158,5 @@ type Client struct {
 // Event holds job data
 type Event struct {
 	Name   string
-	Action func(*Client) Reaction
+	Action Action
 }

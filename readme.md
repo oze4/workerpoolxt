@@ -43,8 +43,6 @@ func main() {
 	var manyEvents reactor.Events
 	for i := 0; i < 10; i++ {
 		name := "event " + fmt.Sprintf("%d", i)
-		//
-		// doesn't matter how they were added
 		myevent := reactor.NewEvent(name, func(c *reactor.Client) reactor.Reaction {
 			return reactor.Reaction{}
 		})

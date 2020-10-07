@@ -1,7 +1,8 @@
 package reactor
 
 import (
-	"context"
+    "context"
+    "fmt"
 	"net/http"
 	"time"
 
@@ -89,6 +90,7 @@ func (r *reactor) Reactions() Reactions {
 func (r *reactor) ReactionsWait() Reactions {
 	var reactions Reactions
 	for r.activeJobs > 0 {
+        fmt.Println(r.workerPool.WaitingQueueSize())
 		select {
 		case reaction := <-r.reactions:
 			reactions = append(reactions, reaction)

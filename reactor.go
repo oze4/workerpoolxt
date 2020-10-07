@@ -64,6 +64,7 @@ type reactor struct {
 	workerPool *workerpool.WorkerPool
 	reactions  chan Reaction
 	transport  *Client
+	activeJobs int
 }
 
 // React submits a job
@@ -84,13 +85,24 @@ func (r *reactor) Reactions() Reactions {
 	return r.getResults()
 }
 
+func (r *reactor) ReactionsWait() Reactions {
+	var reactions Reactions
+	for r.activeJobs > 0 {
+		select {
+		case reaction := <-r.reactions:
+			reactions = append(reactions, reaction)
+		}
+	}
+	return reactions
+}
+
 func (r *reactor) getResults() Reactions {
 	r.workerPool.StopWait()
 	close(r.reactions)
 
 	var reactions Reactions
-	for jobreact := range r.reactions {
-		reactions = append(reactions, jobreact)
+	for reaction := range r.reactions {
+		reactions = append(reactions, reaction)
 	}
 
 	return reactions
@@ -98,6 +110,7 @@ func (r *reactor) getResults() Reactions {
 
 // worker should be private
 func (r *reactor) worker(ctx context.Context, done context.CancelFunc, event Event, start time.Time) {
+	r.activeJobs++
 	reaction := event.Action(r.transport)
 	reaction.duration = time.Since(start)
 	reaction.name = event.Name
@@ -106,6 +119,7 @@ func (r *reactor) worker(ctx context.Context, done context.CancelFunc, event Eve
 		r.reactions <- reaction
 	}
 
+	r.activeJobs--
 	done()
 }
 

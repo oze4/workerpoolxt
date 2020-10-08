@@ -53,8 +53,17 @@ func main() {
 	// Add multiple
 	reactr.Reacts(manyEvents)
 
-	// All results will be here
-	results := reactr.Reactions()
+	// All results will be here - ReactionsStop gets results and kills workerpool
+	// *Events cannot be added after calling ReactionsStop()*
+	results := reactr.ReactionsStop()
+
+	// If you do not want to kill wokerpool, and wish to continue to add jobs after
+	// getting results, you could also do:
+	//
+	//// results := reactr.ReactionsWait()
+	//
+	// Continue adding jobs
+	// ...
 
 	for _, result := range results {
 		fmt.Println(result)

@@ -1,8 +1,7 @@
 package reactor
 
 import (
-    "context"
-    "fmt"
+	"context"
 	"net/http"
 	"time"
 
@@ -57,16 +56,16 @@ type Action func(*Client) Reaction
 type Reactor interface {
 	React(single Event)       // React puts a job on the queue
 	Reacts(many Events)       // Overreact allows you to supply multiple Events
-	Reactions() Reactions     // Stop workerpool and get results
+	ReactionsStop() Reactions // Stop workerpool and get results
 	ReactionsWait() Reactions // Wait on results without stopping worker pool, then continue
 }
 
 type reactor struct {
-	jobTimeout time.Duration
-	workerPool *workerpool.WorkerPool
-	reactions  chan Reaction
-	transport  *Client
-	activeJobs int
+	jobTimeout     time.Duration
+	workerPool     *workerpool.WorkerPool
+	reactions      chan Reaction
+	transport      *Client
+	numTotalEvents int
 }
 
 // React submits a job
@@ -81,25 +80,10 @@ func (r *reactor) Reacts(many Events) {
 	}
 }
 
-// Reactions gets results
-// Only call after you have finished adding jobs
-func (r *reactor) Reactions() Reactions {
-	return r.getResults()
-}
-
-func (r *reactor) ReactionsWait() Reactions {
-	var reactions Reactions
-	for r.activeJobs > 0 {
-        fmt.Println(r.workerPool.WaitingQueueSize())
-		select {
-		case reaction := <-r.reactions:
-			reactions = append(reactions, reaction)
-		}
-	}
-	return reactions
-}
-
-func (r *reactor) getResults() Reactions {
+// ReactionsStop gets results then kills the worker pool
+//
+// You cannot React (add events to worker pool) after calling `ReactionsStop()``
+func (r *reactor) ReactionsStop() Reactions {
 	r.workerPool.StopWait()
 	close(r.reactions)
 
@@ -111,9 +95,34 @@ func (r *reactor) getResults() Reactions {
 	return reactions
 }
 
+// ReactionsWait essentially "pauses" the workerpool to get all current
+// and pending event reactions. Once we have all reactions we return them
+// and you can continue to use the workerpool.
+//
+// Unlike `ReactionsStop()` this does not kill the worker pool. You can continue
+// to add jobs (events) after calling `ReactionsWait()`
+func (r *reactor) ReactionsWait() Reactions {
+	var reactions Reactions
+	for {
+		select {
+		case reaction := <-r.reactions:
+			reactions = append(reactions, reaction)
+		case <-time.After(time.Millisecond * 100):
+			if r.numTotalEvents == len(reactions) {
+				r.resetNumTotalEvents()
+				goto Return
+			}
+		case <-time.After(time.Hour * 24): // Just in case
+			goto Return
+		}
+	}
+Return:
+	return reactions
+}
+
 // worker should be private
 func (r *reactor) worker(ctx context.Context, done context.CancelFunc, event Event, start time.Time) {
-	r.activeJobs++
+	r.numTotalEvents++
 	reaction := event.Action(r.transport)
 	reaction.duration = time.Since(start)
 	reaction.name = event.Name
@@ -122,8 +131,11 @@ func (r *reactor) worker(ctx context.Context, done context.CancelFunc, event Eve
 		r.reactions <- reaction
 	}
 
-	r.activeJobs--
 	done()
+}
+
+func (r *reactor) resetNumTotalEvents() {
+	r.numTotalEvents = 0
 }
 
 // wrapper should be private

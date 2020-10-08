@@ -1,4 +1,4 @@
-module github.com/oze4/reactor
+module github.com/oze4/wpreactor
 
 go 1.15
 

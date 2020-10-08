@@ -65,7 +65,8 @@ type reactor struct {
 	workerPool     *workerpool.WorkerPool
 	reactions      chan Reaction
 	transport      *Client
-	numTotalEvents int
+	jobCount       int
+	jobResultCount int
 }
 
 // React submits a job
@@ -73,7 +74,7 @@ func (r *reactor) React(single Event) {
 	r.workerPool.Submit(r.wrapper(single))
 }
 
-// Overreact allows you to supply multiple Events
+// Reacts allows you to supply multiple Events
 func (r *reactor) Reacts(many Events) {
 	for _, e := range many {
 		r.workerPool.Submit(r.wrapper(e))
@@ -103,26 +104,25 @@ func (r *reactor) ReactionsStop() Reactions {
 // to add jobs (events) after calling `ReactionsWait()`
 func (r *reactor) ReactionsWait() Reactions {
 	var reactions Reactions
+
 	for {
 		select {
 		case reaction := <-r.reactions:
 			reactions = append(reactions, reaction)
-		case <-time.After(time.Millisecond * 100):
-			if r.numTotalEvents == len(reactions) {
-				r.resetNumTotalEvents()
+			r.jobResultCount++
+			if (r.jobCount) == (r.jobResultCount) {
 				goto Return
 			}
-		case <-time.After(time.Hour * 24): // Just in case
-			goto Return
 		}
 	}
+
 Return:
 	return reactions
 }
 
-// worker should be private
+// worker kicks off job and places result on results chan unless timeout is exceeded. If that is
+// the case we do nothing with return and let `wrapper` handle context deadline exceeded
 func (r *reactor) worker(ctx context.Context, done context.CancelFunc, event Event, start time.Time) {
-	r.numTotalEvents++
 	reaction := event.Action(r.transport)
 	reaction.duration = time.Since(start)
 	reaction.name = event.Name
@@ -134,13 +134,10 @@ func (r *reactor) worker(ctx context.Context, done context.CancelFunc, event Eve
 	done()
 }
 
-func (r *reactor) resetNumTotalEvents() {
-	r.numTotalEvents = 0
-}
-
 // wrapper should be private
 func (r *reactor) wrapper(event Event) func() {
 	ctx, cancel := context.WithTimeout(context.Background(), r.jobTimeout)
+	r.jobCount = r.jobCount + 1
 
 	return func() {
 		start := time.Now()

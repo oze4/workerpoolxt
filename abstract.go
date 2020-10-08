@@ -42,6 +42,15 @@ func NewEvent(name string, action Action) Event {
 	}
 }
 
+// NewEventWithTimeout creates a new event with a timeout
+func NewEventWithTimeout(name string, timeout time.Duration, action Action) Event {
+	return Event{
+		Name:    name,
+		Action:  action,
+		Timeout: timeout,
+	}
+}
+
 // Reactor knows how to handle jobs
 type Reactor interface {
 	// React puts a job on the queue

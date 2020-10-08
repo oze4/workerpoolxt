@@ -13,6 +13,9 @@ import (
 )
 
 func main() {
+	// General timeout for jobs
+	// You can also supply a timeout per job. If a timeout is not set for a job
+	// then we use this general timeout.
 	timeoutForJobs := time.Duration(time.Second * 10)
 	numOfWorkers := 10
 
@@ -27,30 +30,31 @@ func main() {
 	 * Add as many events one by one that you wish, BEFORE calling `myreactor.Reactions()`
 	 */
 
-	reactr.React(reactor.NewEvent("name", func(c *reactor.Client) reactor.Reaction {
-		return reactor.Reaction{}
+	reactr.React(reactor.NewEvent("event", func(c *reactor.Client) reactor.Reaction {
+		// if error, set the error field
+		someError := errors.New("some error")
+		if someError != nil {
+			return reactor.Reaction{Error: someError}
+		}
+		// if no error, set response field
+		yourResult := "pretend I am a data that was returned by something"
+		return reactor.Reaction{Response: yourResult}
+	}))
+
+	// event with timeout
+	reactr.React(reactor.NewEventWithTimeout("eventWithTimeout", time.Duration(time.Second*3), func(c *reactor.Client) reactor.Reaction {
+		// ...
 	}))
 
 	// etc...
 
 	/**
-	 * Add events in bulk
-	 *
-	 * Keep in mind, instead of using a loop to add events to `manyEvents` you could gather
-	 * events in a slice in a number of ways. It doesn't matter how we wind up with a slice
-	 * of Events, just that we have a slice of Events.
+	 * Adding events in bulk
 	 */
 
-	var manyEvents reactor.Events
-	for i := 0; i < 10; i++ {
-		name := "event " + fmt.Sprintf("%d", i)
-		myevent := reactor.NewEvent(name, func(c *reactor.Client) reactor.Reaction {
-			return reactor.Reaction{}
-		})
-		manyEvents = append(manyEvents, myevent)
-	}
-
-	// Add multiple
+	// However you get a slice of events, it doesn't matter	
+	manyEvents := []reactor.Event{} 
+	// Bulk add
 	reactr.Reacts(manyEvents)
 
 	// All results will be here - ReactionsStop gets results and kills workerpool

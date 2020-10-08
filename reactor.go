@@ -54,19 +54,25 @@ type Action func(*Client) Reaction
 
 // Reactor knows how to handle jobs
 type Reactor interface {
-	React(single Event)       // React puts a job on the queue
-	Reacts(many Events)       // Overreact allows you to supply multiple Events
-	ReactionsStop() Reactions // Stop workerpool and get results
-	ReactionsWait() Reactions // Wait on results without stopping worker pool, then continue
+	// React puts a job on the queue
+	React(single Event)
+	// Reacts allows you to supply multiple Events
+	Reacts(many Events)
+	// Stop workerpool and get results
+	// **CANNOT** call React(...) or Reacts(...) after calling ReactionStop()
+	ReactionsStop() Reactions
+	// Wait on results without stopping worker pool, then continue
+	// **CAN** continue to call React(...) or Reacts(...) after calling ReactionWait()
+	ReactionsWait() Reactions
 }
 
 type reactor struct {
+	jobCount       int
+	jobResultCount int
 	jobTimeout     time.Duration
 	workerPool     *workerpool.WorkerPool
 	reactions      chan Reaction
 	transport      *Client
-	jobCount       int
-	jobResultCount int
 }
 
 // React submits a job
@@ -96,7 +102,10 @@ func (r *reactor) ReactionsStop() Reactions {
 	return reactions
 }
 
-// ReactionsWait essentially "pauses" the workerpool to get all current
+// ReactionsWait **SHOULD NOT BE USED YET** I still need to test and make sure
+// this is "concurrency-safe".
+//
+// essentially "pauses" the workerpool to get all current
 // and pending event reactions. Once we have all reactions we return them
 // and you can continue to use the workerpool.
 //

@@ -9,6 +9,11 @@ import (
 	"github.com/gammazero/workerpool"
 )
 
+var (
+	maxworkers = 3
+	jobtimeout = time.Duration(time.Second * 4)
+)
+
 func TestNew(t *testing.T) {
 	type args struct {
 		maxWorkers int
@@ -19,7 +24,13 @@ func TestNew(t *testing.T) {
 		args args
 		want Reactor
 	}{
-		// TODO: Add test cases.
+		{
+			args: args{
+				maxWorkers: maxworkers,
+				jobTimeout: jobtimeout,
+			},
+			want: New(maxworkers, jobtimeout),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -244,7 +255,7 @@ func Test_reactor_worker(t *testing.T) {
 	}
 }
 
-func Test_reactor_wrapper(t *testing.T) {
+/*func Test_reactor_wrapper(t *testing.T) {
 	type fields struct {
 		jobTimeout     time.Duration
 		workerPool     *workerpool.WorkerPool
@@ -279,7 +290,7 @@ func Test_reactor_wrapper(t *testing.T) {
 			}
 		})
 	}
-}
+}*/
 
 func TestReaction_Duration(t *testing.T) {
 	type fields struct {

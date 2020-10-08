@@ -86,7 +86,13 @@ func (r *reactor) worker(ctx context.Context, done context.CancelFunc, event Eve
 
 // wrapper should be private
 func (r *reactor) wrapper(event Event) func() {
-	ctx, cancel := context.WithTimeout(context.Background(), r.jobTimeout)
+	timeout := r.jobTimeout
+	// If Event contains a Timeout use it, otherwise use the general timeout
+	if event.Timeout != 0 {
+		timeout = event.Timeout
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	r.jobCount = r.jobCount + 1
 
 	return func() {

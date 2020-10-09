@@ -71,7 +71,7 @@ func main() {
 	})
 
 	wp.SubmitXT(workerpoolxt.Job{ // Uses custom timeout
-		Name:    "Job 2 will fail",
+		Name:    "Job 2 will timeout",
 		Timeout: time.Duration(time.Millisecond * 1),
 		Task: func() workerpoolxt.Response {
 			time.Sleep(time.Second * 20) // Simulate long running task
@@ -80,7 +80,7 @@ func main() {
 	})
 
 	wp.SubmitXT(workerpoolxt.Job{ // Or if you encounter an error within the code in your job
-		Name: "Job 3 will fail",
+		Name: "Job 3 will encounter an error",
 		Task: func() workerpoolxt.Response {
 			err := fmt.Errorf("ErrorPretendException : something failed")
 			if err != nil {
@@ -102,7 +102,7 @@ func main() {
 }
 
 // ->
+// Job 3 will encounter an error has failed with error : ErrorPretendException : something failed
 // Job 1 will pass has passed successfully
-// Job 3 will fail has failed with error : ErrorPretendException : something failed
-// Job 2 will fail has failed with error : context deadline exceeded
+// Job 2 will timeout has failed with error : context deadline exceeded
 ```

@@ -17,6 +17,8 @@ jobs:
     steps:
     - name: Test
       uses: actions/checkout@v1
+      id: "gotest"
+    - name: Testing
       run: ./test.sh
     - name: Coveralls
       run: |

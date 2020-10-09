@@ -71,3 +71,4 @@ Temporary Items
 
 coverage.txt
 **.git
+go.mod.old

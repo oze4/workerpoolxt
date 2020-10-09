@@ -1,4 +1,4 @@
-module github.com/oze4/wpreactor
+module github.com/oze4/workerpoolxt
 
 go 1.15
 

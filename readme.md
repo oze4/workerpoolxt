@@ -1,6 +1,6 @@
 # workerpoolxt
 
-Worker pool library that extends [github.com/gammazero/workerpool](github.com/gammazero/workerpool).
+Worker pool library that extends [github.com/gammazero/workerpool](https://github.com/gammazero/workerpool).
 
 How we extend `workerpool`:
 

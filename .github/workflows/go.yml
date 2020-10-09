@@ -19,7 +19,7 @@ jobs:
       uses: actions/checkout@v1
       id: "gotest"
     - name: Testing
-      run: ls -a
+      run: ./.github/workflows/test.sh
     - name: Coveralls
       run: |
         go get github.com/mattn/goveralls 

@@ -45,3 +45,64 @@ func main() {
 	}
 }
 ```
+
+### How to handle errors
+
+How do I know if a job timed out? How do I handle an error in my job?
+
+```golang
+package main
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/oze4/workerpoolxt"
+)
+
+func main() {
+	wp := workerpoolxt.New(3, time.Duration(time.Second*10))
+
+	wp.SubmitXT(workerpoolxt.Job{ // Uses default timeout
+		Name: "Job 1 will pass",
+		Task: func() workerpoolxt.Response {
+			return workerpoolxt.Response{Data: "yay"}
+		},
+	})
+
+	wp.SubmitXT(workerpoolxt.Job{ // Uses custom timeout
+		Name:    "Job 2 will fail",
+		Timeout: time.Duration(time.Millisecond * 1),
+		Task: func() workerpoolxt.Response {
+			time.Sleep(time.Second * 20) // Simulate long running task
+			return workerpoolxt.Response{Data: "uhoh"}
+		},
+	})
+
+	wp.SubmitXT(workerpoolxt.Job{ // Or if you encounter an error within the code in your job
+		Name: "Job 3 will fail",
+		Task: func() workerpoolxt.Response {
+			err := fmt.Errorf("ErrorPretendException : something failed")
+			if err != nil {
+				return workerpoolxt.Response{Error: err}
+			}
+			return workerpoolxt.Response{Data: "uhoh"}
+		},
+	})
+
+	results := wp.StopWaitXT()
+
+	for _, r := range results {
+		if r.Error != nil {
+			fmt.Println(r.Name(), "has failed with error :", r.Error.Error())
+		} else {
+			fmt.Println(r.Name(), "has passed successfully")
+		}
+	}
+}
+
+// ->
+// Job 1 will pass has passed successfully
+// Job 3 will fail has failed with error : ErrorPretendException : something failed
+// Job 2 will fail has failed with error : context deadline exceeded
+```

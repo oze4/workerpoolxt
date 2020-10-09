@@ -1,6 +1,6 @@
 # workerpoolxt
-
 [![Build Status](https://travis-ci.org/oze4/workerpoolxt.svg?branch=master)](https://travis-ci.org/oze4/workerpoolxt)
+[![Coverage Status](https://coveralls.io/repos/github/oze4/workerpoolxt/badge.svg?branch=master)](https://coveralls.io/github/oze4/workerpoolxt?branch=master)
 
 Worker pool library that extends [github.com/gammazero/workerpool](https://github.com/gammazero/workerpool).
 

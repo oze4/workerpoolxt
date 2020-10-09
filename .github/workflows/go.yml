@@ -11,10 +11,19 @@ jobs:
         go-version: ^1.13
       id: "go"
     - name: Test
-      run: test.sh
-    - name: Install goveralls
-      run: go get github.com/mattn/goveralls
-    - name: Install gotest
-      run: go get -u github.com/rakyll/gotest
+      run: \
+        set -e
+        echo "" > coverage.txt
+
+        for d in $(go list ./... | grep -v vendor); do
+            go test -race -coverprofile=profile.out -covermode=atomic $d
+            if [ -f profile.out ]; then
+                cat profile.out >> coverage.out
+                rm profile.out
+            fi
+        done
     - name: Coveralls
-      run: $GOPATH/bin/goveralls -coverprofile=coverage.out -service=github -repotoken=$COVERALLS_TOKEN
+      run: \
+        go get github.com/mattn/goveralls \
+        go get -u github.com/rakyll/gotest \ 
+        $GOPATH/bin/goveralls -coverprofile=coverage.out -service=github -repotoken=$COVERALLS_TOKEN

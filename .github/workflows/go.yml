@@ -5,10 +5,10 @@ jobs:
     name: workerpoolxt
     runs-on: ubuntu-latest
     steps:
-    - name: Go tip
+    - name: Go ^1.13
       uses: actions/setup-go@v2.1.3
       with:
-        go-version: tip
+        go-version: ^1.13
       id: "go"
     - name: Build
       run: go build -v .

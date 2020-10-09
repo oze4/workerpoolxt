@@ -14,8 +14,8 @@ func TestOverflow(t *testing.T) {
 	for i := 0; i < 64; i++ {
 		wp.SubmitXT(Job{
 			Name: "test1",
-			Task: func() Response { 
-				<-releaseChan 
+			Task: func() Response {
+				<-releaseChan
 				return Response{}
 			},
 		})

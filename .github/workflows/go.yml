@@ -11,10 +11,9 @@ jobs:
         go-version: ^1.13
       id: "go"
     - name: Test
-      run: \
+      run:
         set -e
         echo "" > coverage.txt
-
         for d in $(go list ./... | grep -v vendor); do
             go test -race -coverprofile=profile.out -covermode=atomic $d
             if [ -f profile.out ]; then
@@ -23,7 +22,7 @@ jobs:
             fi
         done
     - name: Coveralls
-      run: \
-        go get github.com/mattn/goveralls \
-        go get -u github.com/rakyll/gotest \ 
+      run:
+        go get github.com/mattn/goveralls 
+        go get -u github.com/rakyll/gotest 
         $GOPATH/bin/goveralls -coverprofile=coverage.out -service=github -repotoken=$COVERALLS_TOKEN

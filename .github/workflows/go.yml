@@ -10,8 +10,6 @@ jobs:
       with:
         go-version: ^1.13
       id: "go"
-    - name: Build
-      run: go build -v .
     - name: Test
       run: ./test.sh
     - name: Install goveralls

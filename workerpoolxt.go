@@ -54,10 +54,10 @@ func (r *WorkerPoolXT) StopWaitXT() []Response {
 	return responses
 }
 
-// WaitXT "pauses" the workerpool to get all current and pending event reactions. 
+// WaitXT "pauses" the workerpool to get all current and pending event reactions.
 // Once we have all reactions we return them and you can continue to use the workerpool.
 //
-// Unlike `ReactionsStop()` this does not kill the worker pool. You can continue to 
+// Unlike `ReactionsStop()` this does not kill the worker pool. You can continue to
 // add jobs (events) after calling `ReactionsWait()`
 func (r *WorkerPoolXT) WaitXT() []Response {
 	var responses []Response

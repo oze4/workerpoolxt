@@ -8,8 +8,7 @@ import (
 )
 
 var (
-	// defaultResponsesBufferSize is the default buffer size for our results chan
-	defaultResponsesBufferSize = 100
+	defaultResponsesBufferSize = 100 // default buffer size for our results chan
 )
 
 // New creates *WorkerPoolXT
@@ -25,8 +24,7 @@ func New(maxWorkers int, defaultJobTimeout time.Duration) *WorkerPoolXT {
 //  - Collects the output of all jobs so you can work with it later
 //  - Job runtime duration stats baked in
 //  - Job timeouts; global timeout or per job basis
-//  - `myworkerpoolxt.WaitXT()` lets you "pause" to gather job output at any given time,
-//    after which you may continue to submit jobs to the workerpool
+//  - Lets you "pause" to gather results at any given time
 type WorkerPoolXT struct {
 	*workerpool.WorkerPool
 	count          int           // Job count
@@ -51,16 +49,13 @@ func (r *WorkerPoolXT) SubmitAllXT(jobs []Job) {
 // StopWaitXT gets results then kills the worker pool
 // - You cannot add jobs after calling `StopWaitXT()``
 // - Wrapper for `workerpool.StopWait()`
-func (r *WorkerPoolXT) StopWaitXT() []Response {
+func (r *WorkerPoolXT) StopWaitXT() (rs []Response) {
 	r.StopWait()
 	close(r.responses)
-
-	var responses []Response
 	for response := range r.responses {
-		responses = append(responses, response)
+		rs = append(rs, response)
 	}
-
-	return responses
+	return rs
 }
 
 // WaitXTExperimental is an experimental func that needs to be test still.. just an idea I had
@@ -68,23 +63,20 @@ func (r *WorkerPoolXT) StopWaitXT() []Response {
 //  - Once we have all job responses, we return them. You can continue to use the workerpool
 //  - Unlike `workerpool.StopWait()` or `workerpoolxt.StopWaitXT()` this does not kill the worker pool,
 //    meaning, you can continue to add jobs after
-func (r *WorkerPoolXT) WaitXTExperimental() []Response {
-	var responses []Response
-
+func (r *WorkerPoolXT) WaitXTExperimental() (rs []Response) {
 	for {
 		select {
 		case response := <-r.responses:
-			responses = append(responses, response)
+			rs = append(rs, response)
 			r.resultCount++
 			if r.count == r.resultCount {
 				goto Return
 			}
 		}
 	}
-
 Return:
 	r.resetCounters()
-	return responses
+	return rs
 }
 
 func (r *WorkerPoolXT) resetCounters() {
@@ -110,6 +102,7 @@ func (r *WorkerPoolXT) wrap(job Job) func() {
 			j := job.Task()
 			j.runtimeDuration = time.Since(timerStart)
 			j.name = job.Name
+			// This check is important as it keeps from sending duplicate responses on our responses chan
 			if ctx.Err() == nil {
 				r.responses <- j
 			}
@@ -121,8 +114,9 @@ func (r *WorkerPoolXT) wrap(job Job) func() {
 			switch ctx.Err() {
 			case context.DeadlineExceeded:
 				r.responses <- Response{
-					Error: context.DeadlineExceeded,
-					name:  job.Name,
+					Error:           context.DeadlineExceeded,
+					name:            job.Name,
+					runtimeDuration: time.Since(start),
 				}
 			}
 		}

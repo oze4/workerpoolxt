@@ -54,14 +54,11 @@ func (r *WorkerPoolXT) StopWaitXT() []Response {
 	return responses
 }
 
-// WaitXT **SHOULD NOT BE USED YET** I still need to do more testing
+// WaitXT "pauses" the workerpool to get all current and pending event reactions. 
+// Once we have all reactions we return them and you can continue to use the workerpool.
 //
-// Essentially, WaitXT "pauses" the workerpool to get all current
-// and pending event reactions. Once we have all reactions we return them
-// and you can continue to use the workerpool.
-//
-// Unlike `ReactionsStop()` this does not kill the worker pool. You can continue
-// to add jobs (events) after calling `ReactionsWait()`
+// Unlike `ReactionsStop()` this does not kill the worker pool. You can continue to 
+// add jobs (events) after calling `ReactionsWait()`
 func (r *WorkerPoolXT) WaitXT() []Response {
 	var responses []Response
 
@@ -94,10 +91,10 @@ func (r *WorkerPoolXT) work(ctx context.Context, done context.CancelFunc, job Jo
 	done()
 }
 
-// wrap should be private
+// wrap generates the func that we pass to Submit. If a timeout is not supplied with the job,
+// we use the global default.
 func (r *WorkerPoolXT) wrap(job Job) func() {
 	timeout := r.defaultTimeout
-	// If Job contains a Timeout use it, otherwise use the general timeout
 	if job.Timeout != 0 {
 		timeout = job.Timeout
 	}
@@ -113,6 +110,7 @@ func (r *WorkerPoolXT) wrap(job Job) func() {
 		case <-ctx.Done():
 			switch ctx.Err() {
 			case context.DeadlineExceeded:
+				// If our timeout is exceeded, return a Response for the Job that was killed
 				r.responses <- Response{
 					Error:           context.DeadlineExceeded,
 					name:            job.Name,
@@ -121,4 +119,29 @@ func (r *WorkerPoolXT) wrap(job Job) func() {
 			}
 		}
 	}
+}
+
+// Job holds job data
+type Job struct {
+	Name    string
+	Task    func() Response
+	Timeout time.Duration
+}
+
+// Response holds job results
+type Response struct {
+	Error           error
+	Data            interface{}
+	name            string
+	runtimeDuration time.Duration
+}
+
+// RuntimeDuration returns the amount of time it took to run the job
+func (r *Response) RuntimeDuration() time.Duration {
+	return r.runtimeDuration
+}
+
+// Name returns the job name
+func (r *Response) Name() string {
+	return r.name
 }

@@ -1,5 +1,7 @@
 # workerpoolxt
 
+[![Build Status](https://travis-ci.org/oze4/workerpoolxt.svg?branch=master)](https://travis-ci.org/oze4/workerpoolxt)
+
 Worker pool library that extends [github.com/gammazero/workerpool](https://github.com/gammazero/workerpool).
 
 How we extend `workerpool`:

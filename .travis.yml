@@ -8,6 +8,7 @@ language: go
 go:
   - 1.13.x
   - 1.14.x
+  - 1.15.x
   - tip
 
 before_script:
@@ -17,4 +18,6 @@ script:
   - ./test.sh
 
 after_success:
-  - bash <(curl -s https://codecov.io/bash)
+  - go get github.com/mattn/goveralls
+  - go get -u github.com/rakyll/gotest
+  - $GOPATH/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken=$COVERALLS_TOKEN

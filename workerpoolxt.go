@@ -7,27 +7,36 @@ import (
 	"github.com/gammazero/workerpool"
 )
 
-// New creates a new WorkerPoolXT
+var (
+	// defaultResponsesBufferSize is the default buffer size for our results chan
+	defaultResponsesBufferSize = 100
+)
+
+// New creates *WorkerPoolXT
 func New(maxWorkers int, defaultJobTimeout time.Duration) *WorkerPoolXT {
 	return &WorkerPoolXT{
 		WorkerPool:     workerpool.New(maxWorkers),
 		defaultTimeout: defaultJobTimeout,
-		responses:      make(chan Response, 1000),
+		responses:      make(chan Response, defaultResponsesBufferSize),
 	}
 }
 
-// WorkerPoolXT extends `github.com/gammazero/workerpool`
+// WorkerPoolXT extends `github.com/gammazero/workerpool` by:
+//  - Collects the output of all jobs so you can work with it later
+//  - Job runtime duration stats baked in
+//  - Job timeouts; global timeout or per job basis
+//  - `myworkerpoolxt.WaitXT()` lets you "pause" to gather job output at any given time,
+//    after which you may continue to submit jobs to the workerpool
 type WorkerPoolXT struct {
 	*workerpool.WorkerPool
 	count          int           // Job count
 	resultCount    int           // Job result count
 	defaultTimeout time.Duration // Job timeout
-	responses      chan Response
+	responses      chan Response // Job results
 }
 
 // SubmitXT submits a job
-// Allows you to not only submit a job, but get the response
-// from it
+// Allows you to not only submit a job, but get the response from it
 func (r *WorkerPoolXT) SubmitXT(job Job) {
 	r.Submit(r.wrap(job))
 }
@@ -40,8 +49,8 @@ func (r *WorkerPoolXT) SubmitAllXT(jobs []Job) {
 }
 
 // StopWaitXT gets results then kills the worker pool
-//
-// You cannot add jobs after calling `ReactionsStop()``
+// - You cannot add jobs after calling `StopWaitXT()``
+// - Wrapper for `workerpool.StopWait()`
 func (r *WorkerPoolXT) StopWaitXT() []Response {
 	r.StopWait()
 	close(r.responses)
@@ -54,12 +63,12 @@ func (r *WorkerPoolXT) StopWaitXT() []Response {
 	return responses
 }
 
-// WaitXT "pauses" the workerpool to get all current and pending event reactions.
-// Once we have all reactions we return them and you can continue to use the workerpool.
-//
-// Unlike `ReactionsStop()` this does not kill the worker pool. You can continue to
-// add jobs (events) after calling `ReactionsWait()`
-func (r *WorkerPoolXT) WaitXT() []Response {
+// WaitXTExperimental is an experimental func that needs to be test still.. just an idea I had
+//  - "pauses" the workerpool to get all current and pending event reactions
+//  - Once we have all job responses, we return them. You can continue to use the workerpool
+//  - Unlike `workerpool.StopWait()` or `workerpoolxt.StopWaitXT()` this does not kill the worker pool,
+//    meaning, you can continue to add jobs after
+func (r *WorkerPoolXT) WaitXTExperimental() []Response {
 	var responses []Response
 
 	for {
@@ -67,54 +76,53 @@ func (r *WorkerPoolXT) WaitXT() []Response {
 		case response := <-r.responses:
 			responses = append(responses, response)
 			r.resultCount++
-			if (r.count) == (r.resultCount) {
+			if r.count == r.resultCount {
 				goto Return
 			}
 		}
 	}
 
 Return:
+	r.resetCounters()
 	return responses
 }
 
-// worker kicks off job and places result on results chan unless timeout is exceeded. If that is
-// the case we do nothing with return and let `wrapper` handle context deadline exceeded
-func (r *WorkerPoolXT) work(ctx context.Context, done context.CancelFunc, job Job, start time.Time) {
-	j := job.Task()
-	j.runtimeDuration = time.Since(start)
-	j.name = job.Name
-
-	if ctx.Err() == nil {
-		r.responses <- j
-	}
-
-	done()
+func (r *WorkerPoolXT) resetCounters() {
+	r.count = 0
+	r.resultCount = 0
 }
 
-// wrap generates the func that we pass to Submit. If a timeout is not supplied with the job,
-// we use the global default.
+// wrap generates the func that we pass to Submit.
+// - If a timeout is not supplied with the job, we use the global default supplied when `New()` is called
+// - Responsible for injecting timeout and runtime duration
 func (r *WorkerPoolXT) wrap(job Job) func() {
+	r.count++
 	timeout := r.defaultTimeout
 	if job.Timeout != 0 {
 		timeout = job.Timeout
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	r.count++
-
 	return func() {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		start := time.Now()
-		go r.work(ctx, cancel, job, start)
+
+		go func(ctx context.Context, done context.CancelFunc, job Job, timerStart time.Time) {
+			j := job.Task()
+			j.runtimeDuration = time.Since(timerStart)
+			j.name = job.Name
+			if ctx.Err() == nil {
+				r.responses <- j
+			}
+			done()
+		}(ctx, cancel, job, start)
 
 		select {
 		case <-ctx.Done():
 			switch ctx.Err() {
 			case context.DeadlineExceeded:
-				// If our timeout is exceeded, return a Response for the Job that was killed
 				r.responses <- Response{
-					Error:           context.DeadlineExceeded,
-					name:            job.Name,
-					runtimeDuration: time.Since(start),
+					Error: context.DeadlineExceeded,
+					name:  job.Name,
 				}
 			}
 		}

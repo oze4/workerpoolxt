@@ -1,15 +1,15 @@
 name: Test
 on: [push]
 jobs:
-  build:
-    name: workerpoolxt
-    runs-on: ubuntu-latest
-    steps:
-    - name: Go ^1.13
-      uses: actions/setup-go@v2.1.3
-      with:
-        go-version: ^1.13
-      id: "go"
+  #build:
+  #  name: workerpoolxt
+  #  runs-on: ubuntu-latest
+  #  steps:
+  #  - name: Go ^1.13
+  #    uses: actions/setup-go@v2.1.3
+  #    with:
+  #      go-version: ^1.13
+  #    id: "go"
 
   test:
     name: test

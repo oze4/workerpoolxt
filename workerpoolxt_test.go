@@ -39,7 +39,7 @@ func TestOverflow(t *testing.T) {
 	}
 }
 
-func TestReadmeCode_HowToHandleErrors(t *testing.T) {
+func TestSubmitXT_HowToHandleErrors(t *testing.T) {
 	wp := New(3, time.Duration(time.Second*10))
 	wp.SubmitXT(Job{ // Uses default timeout
 		Name: "Job 1 will pass",
@@ -73,5 +73,23 @@ func TestReadmeCode_HowToHandleErrors(t *testing.T) {
 	}
 	if succeeded != 1 || failed != 2 {
 		t.Fatalf("expected succeeded=1:failed=2 : got succeeded=%d:failed=%d", succeeded, failed)
+	}
+}
+
+func TestResultCountEqualsJobCount(t *testing.T) {
+	numJobs := 500
+	numworkers := 10
+	wp := New(numworkers, time.Duration(time.Second*10))
+	for i := 0; i < numJobs; i++ {
+		ii := i
+		wp.SubmitXT(Job{
+			Name: fmt.Sprintf("Job %d", ii),
+			Task: func() Response { return Response{Data: fmt.Sprintf("Placeholder : %d", ii)} },
+		})
+	}
+	results := wp.StopWaitXT()
+	numResults := len(results)
+	if numResults != numJobs {
+		t.Fatalf("Expected %d results but got %d", numJobs, numResults)
 	}
 }

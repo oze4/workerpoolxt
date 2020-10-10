@@ -93,3 +93,37 @@ func TestResultCountEqualsJobCount(t *testing.T) {
 		t.Fatalf("Expected %d results but got %d", numJobs, numResults)
 	}
 }
+
+func TestRuntimeDuration(t *testing.T) {
+	wp := New(3, time.Duration(time.Second*10))
+	wp.SubmitXT(Job{
+		Name: "test",
+		Task: func() Response {
+			time.Sleep(time.Second)
+			return Response{Data: "testing"}
+		},
+	})
+
+	res := wp.StopWaitXT()
+	first := res[0]
+	if first.RuntimeDuration() == 0 {
+		t.Fatalf("Expected RuntimeDuration() to not equal 0")
+	}
+}
+
+func TestName(t *testing.T) {
+	thename := "test99"
+	wp := New(3, time.Duration(time.Second*10))
+	wp.SubmitXT(Job{
+		Name: thename,
+		Task: func() Response {
+			return Response{Data: "testing"}
+		},
+	})
+
+	res := wp.StopWaitXT()
+	first := res[0]
+	if first.Name() != thename {
+		t.Fatalf("Expected Name() to be %s got %s", thename, first.Name())
+	}
+}

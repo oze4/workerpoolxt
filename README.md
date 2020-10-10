@@ -1,5 +1,5 @@
 # workerpoolxt
-[![Build](https://github.com/oze4/workerpoolxt/workflows/CI/badge.svg)](https://github.com/oze4/workerpoolxt/actions)
+[![Build](https://github.com/oze4/workerpoolxt/workflows/Build/badge.svg?branch=master)](https://github.com/oze4/workerpoolxt/actions)
 [![codecov](https://codecov.io/gh/oze4/workerpoolxt/branch/master/graph/badge.svg)](https://codecov.io/gh/oze4/workerpoolxt)
 [![Go Report Card](https://goreportcard.com/badge/github.com/oze4/workerpoolxt)](https://goreportcard.com/report/github.com/oze4/workerpoolxt)
 

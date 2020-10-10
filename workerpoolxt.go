@@ -41,7 +41,11 @@ type WorkerPoolXT struct {
 	// Store job results
 	// Since jobs run as soon as they are submitted, we have to store them
 	// so we can return them when `StopWaitXT()` is called
-	responses  []Response
+	responses []Response
+	// No upper limit on # of jobs queued, only workers active means we can
+	// provide an unbuffered responsesChan without worrying about deadlock but
+	// we also need to know when to stop blocking. When anything is sent to
+	// the killswitch chan we stop processing Responses
 	killswitch chan bool
 }
 
@@ -49,13 +53,6 @@ type WorkerPoolXT struct {
 // Allows you to not only submit a job, but get the response from it
 func (r *WorkerPoolXT) SubmitXT(job Job) {
 	r.Submit(r.wrap(job))
-}
-
-// SubmitAllXT allows you to supply multiple Events
-func (r *WorkerPoolXT) SubmitAllXT(jobs []Job) {
-	for _, job := range jobs {
-		r.Submit(r.wrap(job))
-	}
 }
 
 // StopWaitXT gets results then kills the worker pool
@@ -106,7 +103,7 @@ func (r *WorkerPoolXT) wrap(job Job) func() {
 }
 
 // processResponses listens for anything on the responses chan and appends
-// the response to r.responses. No upper limit on # of jobs queued, only
+// the response to r.responses - No upper limit on # of jobs queued, only
 // workers active means we can provide an unbuffered responsesChan without
 // worrying about deadlock
 func (r *WorkerPoolXT) processResponses() {

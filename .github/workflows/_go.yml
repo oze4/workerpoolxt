@@ -3,23 +3,14 @@ name: Tests & Coverage
 on: [push]
 
 jobs:
-  tests:
-    name: Checkout & Test
+  test:
+    name: "Test & Coverage"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v1
-        id: "tests"
+        id: "test"
       - name: Test
         run: ./.github/workflows/test.sh
-  coverage:
-    name: Coveralls
-    runs-on: ubuntu-latest
-    steps:
-      - name: Go ^1.13
-        uses: actions/setup-go@v2.1.3
-        with:
-          go-version: ^1.13
-        id: "coverage"
-      - name: Coveralls
-        run: ./.github/workflows/coverage.sh
+      - name: Coverage
+        run: bash <(curl -s https://codecov.io/bash)

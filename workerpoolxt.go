@@ -58,27 +58,6 @@ func (r *WorkerPoolXT) StopWaitXT() (rs []Response) {
 	return rs
 }
 
-// WaitXTExperimental is an experimental func that needs to be test still.. just an idea I had
-//  - "pauses" the workerpool to get all current and pending event reactions
-//  - Once we have all job responses, we return them. You can continue to use the workerpool
-//  - Unlike `workerpool.StopWait()` or `workerpoolxt.StopWaitXT()` this does not kill the worker pool,
-//    meaning, you can continue to add jobs after
-func (r *WorkerPoolXT) WaitXTExperimental() (rs []Response) {
-	for {
-		select {
-		case response := <-r.responses:
-			rs = append(rs, response)
-			r.resultCount++
-			if r.count == r.resultCount {
-				goto Return
-			}
-		}
-	}
-Return:
-	r.resetCounters()
-	return rs
-}
-
 func (r *WorkerPoolXT) resetCounters() {
 	r.count = 0
 	r.resultCount = 0

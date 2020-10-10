@@ -2,6 +2,7 @@ package workerpoolxt
 
 import (
 	//"reflect"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -35,5 +36,42 @@ func TestOverflow(t *testing.T) {
 	qlen := wp.WorkerPool.WaitingQueueSize()
 	if qlen != 62 {
 		t.Fatal("Expected 62 tasks in waiting queue, have", qlen)
+	}
+}
+
+func TestReadmeCode_HowToHandleErrors(t *testing.T) {
+	wp := New(3, time.Duration(time.Second*10))
+	wp.SubmitXT(Job{ // Uses default timeout
+		Name: "Job 1 will pass",
+		Task: func() Response {
+			return Response{Data: "yay"}
+		}})
+	wp.SubmitXT(Job{ // Uses custom timeout
+		Name:    "Job 2 will timeout",
+		Timeout: time.Duration(time.Millisecond * 1),
+		Task: func() Response {
+			time.Sleep(time.Second * 20) // Simulate long running task
+			return Response{Data: "uhoh"}
+		}})
+	wp.SubmitXT(Job{ // Or if you encounter an error within the code in your job
+		Name: "Job 3 will encounter an error",
+		Task: func() Response {
+			err := fmt.Errorf("ErrorPretendException : something failed")
+			if err != nil {
+				return Response{Error: err}
+			}
+			return Response{Data: "uhoh"}
+		}})
+	results := wp.StopWaitXT()
+	failed, succeeded := 0, 0
+	for _, r := range results {
+		if r.Error != nil {
+			failed++
+		} else {
+			succeeded++
+		}
+	}
+	if succeeded != 1 || failed != 2 {
+		t.Fatalf("expected succeeded=1:failed=2 : got succeeded=%d:failed=%d", succeeded, failed)
 	}
 }

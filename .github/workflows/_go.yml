@@ -1,4 +1,4 @@
-name: CICD
+name: CI
 
 on: [push]
 
@@ -6,25 +6,31 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Setup Go
-    - uses: actions/setup-go@v2
-      with:
-        go-version: '1.15.2'
-    - name: Install dependencies
-      run: |
-        go version
-        go get -u golang.org/x/lint/golint
-    - name: Run build
-      run: |
-        go build . 
-    - name: Run vet & lint
-      run: |
-        go vet .
-        golint .
-    - name: Run tests
-      run: |
-        ./.github/workflows/test.sh
-    - name: Run coverage
-      run: |
-        bash <(curl -s https://codecov.io/bash)
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        id: "build"
+        with:
+          go-version: "1.15.2" # The Go version to download (if necessary) and use.
+      - name: Install dependencies
+        uses: actions/checkout@v2
+        run: |
+          go version
+          go get -u golang.org/x/lint/golint
+      - name: Run build
+        run: go build .
+      - name: Run vet & lint
+        run: |
+          go vet .
+          golint .
+
+  test:
+    name: "Test & Coverage"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        id: "test"
+      - name: Run tests
+        run: ./.github/workflows/test.sh
+      - name: Run coverage
+        run: bash <(curl -s https://codecov.io/bash)

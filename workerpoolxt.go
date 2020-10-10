@@ -7,10 +7,6 @@ import (
 	"github.com/gammazero/workerpool"
 )
 
-var (
-	defaultResponsesBufferSize = 100 // default buffer size for our results chan
-)
-
 // New creates *WorkerPoolXT
 func New(maxWorkers int, defaultJobTimeout time.Duration) *WorkerPoolXT {
 	w := &WorkerPoolXT{

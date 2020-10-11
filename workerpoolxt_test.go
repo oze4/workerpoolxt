@@ -129,7 +129,7 @@ func TestWaitingQueueSizeRace(t *testing.T) {
 }
 
 func TestSubmitXT_HowToHandleErrors(t *testing.T) {
-	wp := New(3, time.Duration(time.Second*10))
+	wp := New(3, time.Duration(time.Second*5))
 	wp.SubmitXT(Job{ // Uses default timeout
 		Name: "Job 1 will pass",
 		Task: func(o Options) Response {
@@ -152,6 +152,7 @@ func TestSubmitXT_HowToHandleErrors(t *testing.T) {
 			return Response{Data: "uhoh"}
 		}})
 	results := wp.StopWaitXT()
+	fmt.Println("aa")
 	failed, succeeded := 0, 0
 	for _, r := range results {
 		if r.Error != nil {
@@ -321,4 +322,19 @@ func TestPerJobOptionsOverrideDefaultOptions(t *testing.T) {
 			}
 		}
 	}
+}
+
+/**
+ * This is a "cheap" test.  More thorough tests need to be performed on wp.stop(true)
+ */
+func TestStopNow(t *testing.T) {
+	wp := New(3, time.Duration(time.Second*10))
+	wp.SubmitXT(Job{
+		Name: "job 1",
+		Task: func(o Options) Response {
+			// Set data to our opts myvar
+			return Response{Data: "placeholder"}
+		},
+	})
+	wp.stop(true)
 }

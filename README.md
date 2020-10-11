@@ -7,11 +7,12 @@ Worker pool library that extends [github.com/gammazero/workerpool](https://githu
 
 How we extend `workerpool`:
 
-- Get results from each job
+- [Get results from each job](#basic-example)
   - We collect job results so you can work with them later
   - [How to handle errors](#how-to-handle-errors)
   - [How do I know if a job timed out](#how-to-handle-errors)
 - [Pass any variable/data/etc into each job via Options](#options)
+  - Pass data from outside of the job without having to worry about closures or generators
   - Set [default options on the workerpool](#supply-default-options)
   - or [on a per job basis](#supply-options-per-job)
 - Job runtime statistics

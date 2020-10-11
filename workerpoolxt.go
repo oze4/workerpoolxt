@@ -21,63 +21,50 @@ func New(maxWorkers int, defaultJobTimeout time.Duration) *WorkerPoolXT {
 }
 
 // WorkerPoolXT extends `github.com/gammazero/workerpool` by:
-//  - Collects the output of all jobs so you can work
-//    with it later
+//  - Collects the output of all jobs so you can work with it later
 //  - Job runtime duration stats baked in
 //  - Job timeouts; global timeout or per job basis
-//  - Lets you "pause" to gather results at any given
-//    time
+//  - Lets you "pause" to gather results at any given time
 type WorkerPoolXT struct {
 	// Embed WorkerPool
 	*workerpool.WorkerPool
-	// defaultTimeout is the default timeout for each job
-	// If a timeout is not specified along with the job,
-	// we use this timeout
+	// defaultTimeout is the default timeout for each job. If a timeout is not specified along with
+	// the job, we use this timeout
 	defaultTimeout time.Duration
 	// responsesChan is a chan to send job results on
 	responsesChan chan Response
-	// responses stores job results. Since jobs run
-	// as soon as they are submitted, we have to store the
-	// results so we can return them when `StopWaitXT()`
-	// is called
+	// responses stores job results. Since jobs run as soon as they are submitted, we have to store
+	// the results so we can return them when `StopWaitXT()` is called
 	responses []Response
-	// No upper limit on # of jobs queued, only workers
-	// active means we canprovide an unbuffered responsesChan
-	// without worrying about deadlock but we also need to
-	// know when to stop blocking. When anything is sent to
-	// the killswitch chan we stop processing Responses
+	// No upper limit on # of jobs queued, only workers active means we canprovide an unbuffered
+	// responsesChan without worrying about deadlock but we also need to know when to stop blocking.
+	// When anything is sent to the killswitch chan we stop processing Responses
 	killswitch chan bool
 	// options are optional default options that get passed to each job
 	options Options
 }
 
-// SubmitXT submits a job. Allows you to not only
-// submit a job, but get the response from it
+// SubmitXT submits a job. Allows you to not only submit a job, but get the response from it
 func (wp *WorkerPoolXT) SubmitXT(job Job) {
 	wp.Submit(wp.wrap(job))
 }
 
-// StopWaitXT gets results then kills the worker pool
-// - You cannot add jobs after calling `StopWaitXT()``
-// - Wrapper for `workerpool.StopWait()`
+// StopWaitXT gets results then kills the worker pool. You cannot add jobs after calling `StopWaitXT()``
 func (wp *WorkerPoolXT) StopWaitXT() (rs []Response) {
 	wp.StopWait()
 	wp.stop()
 	return wp.responses
 }
 
-// WithOptions sets default options for each job
-// You can also supply options on a per job basis,
+// WithOptions sets default options for each job You can also supply options on a per job basis,
 // which will override the default options.
 func (wp *WorkerPoolXT) WithOptions(o Options) {
 	wp.options = o
 }
 
 // wrap generates the func that we pass to Submit.
-// - If a timeout is not supplied with the job, we use
-//   the global default supplied when `New()` is called
-// - If optoins are not supplied with the job, we use
-//   the global default supplied when `New()` is called
+// - If a timeout is not supplied with the job, we use the global default supplied when `New()` is called
+// - If optoins are not supplied with the job, we use the global default supplied when `New()` is called
 // - Responsible for injecting timeout and runtime duration
 func (wp *WorkerPoolXT) wrap(job Job) func() {
 	timeout := wp.getTimeout(job)
@@ -92,8 +79,7 @@ func (wp *WorkerPoolXT) wrap(job Job) func() {
 			f := j.Task(o)
 			f.runtimeDuration = time.Since(ts)
 			f.name = j.Name
-			// This check is important as it keeps from sending
-			// duplicate responses on our responses chan
+			// This check is important as it keeps from sending duplicate responses on our responses chan
 			if ctx.Err() == nil {
 				wp.responsesChan <- f
 			}
@@ -101,8 +87,7 @@ func (wp *WorkerPoolXT) wrap(job Job) func() {
 		}(ctx, cancel, job, start)
 
 		select {
-		// If our timeout has passed, return an error object,
-		// disregarding any response from job which timed out
+		// If our timeout has passed, return an error object, disregarding any response from job which timed out
 		case <-ctx.Done():
 			switch ctx.Err() {
 			case context.DeadlineExceeded:
@@ -135,10 +120,9 @@ func (wp *WorkerPoolXT) getOptions(job Job) Options {
 	return job.Options
 }
 
-// processResponses listens for anything on the responses chan and appends
-// the response to wp.responses - No upper limit on # of jobs queued, only
-// workers active means we can provide an unbuffered responsesChan without
-// worrying about deadlock
+// processResponses listens for anything on the responses chan and appends the response to
+// wp.responses. No upper limit on # of jobs queued, only workers active, means we can provide
+// an unbuffered response chan without worrying about deadlock
 func (wp *WorkerPoolXT) processResponses() {
 	for {
 		select {

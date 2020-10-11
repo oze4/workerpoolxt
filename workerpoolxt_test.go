@@ -1,8 +1,8 @@
 package workerpoolxt
 
 import (
+	"sync"
 	//"reflect"
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -42,10 +42,20 @@ func TestOverflow(t *testing.T) {
 
 func TestStopRace(t *testing.T) {
 	wp := New(20, time.Duration(time.Second*10))
+	workRelChan := make(chan struct{})
 
-	// Start and pause all workers.
-	ctx, cancel := context.WithCancel(context.Background())
-	wp.Pause(ctx)
+	var started sync.WaitGroup
+	started.Add(20)
+
+	// Start workers, and have them all wait on a channel before completing.
+	for i := 0; i < 20; i++ {
+		wp.Submit(func() {
+			started.Done()
+			<-workRelChan
+		})
+	}
+
+	started.Wait()
 
 	const doneCallers = 5
 	stopDone := make(chan struct{}, doneCallers)
@@ -62,7 +72,7 @@ func TestStopRace(t *testing.T) {
 	default:
 	}
 
-	cancel()
+	close(workRelChan)
 
 	timeout := time.After(time.Second)
 	for i := 0; i < doneCallers; i++ {

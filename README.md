@@ -6,6 +6,16 @@
 
 - Worker pool library that extends [github.com/gammazero/workerpool](https://github.com/gammazero/workerpool).
 
+---
+
+## BUG FOUND 
+
+ - Race condition when mixing `Submit()` & `SubmitXT()`
+ - **I am working on a hotfix but for now, *DO NOT MIX THE TWO***
+ - [Open issue can be found here](https://github.com/oze4/workerpoolxt/issues/5)
+
+---
+
 - **Retain access to underlying `*WorkerPool` object as if you imported `workerpool` directly**
 
 - How we extend `workerpool`

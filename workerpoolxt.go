@@ -75,7 +75,6 @@ func (wp *WorkerPoolXT) processResponses() {
 	}
 Done:
 	<-wp.killswitch
-
 }
 
 // wrap generates the func that we pass to Submit.

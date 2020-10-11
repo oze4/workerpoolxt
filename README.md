@@ -29,20 +29,20 @@ package main
 import (
 	"fmt"
 	"time"
-	"github.com/oze4/workerpoolxt"
+	wpxt "github.com/oze4/workerpoolxt"
 )
 
 func main() {
-	wp := workerpoolxt.New(10, time.Duration(time.Second*10))
+	wp := wpxt.New(10, time.Duration(time.Second*10))
 
 	wp.SubmitXT(Job{ // For demo purposes, this job will timeout
 		Name:    "My first job",
 		Timeout: time.Duration(time.Second * 1),
 		//                     ^^^^^^^^^^^^^^^
-		Task: func() Response {
+		Task: func(o wpxt.Options) wpxt.Response {
 			time.Sleep(time.Second * 2)
 			//         ^^^^^^^^^^^^^^^
-			return Response{Data: "Hello"}
+			return wpxt.Response{Data: "Hello"}
 		},
 	})
 
@@ -67,36 +67,41 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/oze4/workerpoolxt"
+	wpxt "github.com/oze4/workerpoolxt"
 )
 
 func main() {
-	wp := workerpoolxt.New(3, time.Duration(time.Second*10))
+	wp := wpxt.New(3, time.Duration(time.Second*10))
 
-	wp.SubmitXT(workerpoolxt.Job{ // Uses default timeout
+        // Uses default timeout
+	wp.SubmitXT(wpxt.Job{ 
 		Name: "Job 1 will pass",
-		Task: func() workerpoolxt.Response {
-			return workerpoolxt.Response{Data: "yay"}
+		Task: func(o wpxt.Options) wpxt.Response {
+			return wpxt.Response{Data: "yay"}
 		},
 	})
 
-	wp.SubmitXT(workerpoolxt.Job{ // Uses custom timeout
+        // Uses custom timeout
+	// This job is configured to timeout on purpose
+	wp.SubmitXT(wpxt.Job{ 
 		Name:    "Job 2 will timeout",
 		Timeout: time.Duration(time.Millisecond * 1),
-		Task: func() workerpoolxt.Response {
-			time.Sleep(time.Second * 20) // Simulate long running task
-			return workerpoolxt.Response{Data: "uhoh"}
+		Task: func(o wpxt.Options) wpxt.Response {
+		        // Simulate long running task
+			time.Sleep(time.Second * 20) 
+			return wpxt.Response{Data: "timedout"}
 		},
 	})
 
-	wp.SubmitXT(workerpoolxt.Job{ // Or if you encounter an error within the code in your job
+        // Or if you encounter an error within the code in your job
+	wp.SubmitXT(wpxt.Job{ 
 		Name: "Job 3 will encounter an error",
-		Task: func() workerpoolxt.Response {
+		Task: func(o wpxt.Options) wpxt.Response {
 			err := fmt.Errorf("ErrorPretendException : something failed")
 			if err != nil {
-				return workerpoolxt.Response{Error: err}
+				return wpxt.Response{Error: err}
 			}
-			return workerpoolxt.Response{Data: "uhoh"}
+			return wpxt.Response{Data: "error"}
 		},
 	})
 

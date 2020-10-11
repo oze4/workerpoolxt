@@ -9,12 +9,18 @@ How we extend `workerpool`:
 
 - Get results from each job
   - We collect job results so you can work with them later
+  - [How to handle errors](#how-to-handle-errors)
+  - [How do I know if a job timed out](#how-to-handle-errors)
+- [Pass any variable/data/etc into each job via Options](#options)
+  - Set [default options on the workerpool](#supply-default-options)
+  - or [on a per job basis](#supply-options-per-job)
 - Job runtime statistics
   - Runtime duration stats are baked in
-- Job timeouts
+  - Access via `somejobresult.RuntimeDuration() //-> time.Duration`
+- [Job timeouts](#basic-example)
   - Fine tune timeouts on a per job basis
 
-Example/notes:
+### Basic example
 
 ```golang
 package main
@@ -108,4 +114,56 @@ func main() {
 // Job 3 will encounter an error has failed with error : ErrorPretendException : something failed
 // Job 1 will pass has passed successfully
 // Job 2 will timeout has failed with error : context deadline exceeded
+```
+
+### Options
+
+ - Providing options is optional
+ - Options are nothing more than `map[string]interface{}` so that you may supply anything you wish. This also simplifies accessing options within a job.
+ - You can supply options along with the workerpool, or on a per job basis. If a job has options set, it overrides the defaults **it does not merge options**.
+
+#### Supply default options
+
+```golang
+import (
+    wpxt "github.com/oze4/workerpoolxt"
+    // ...
+)
+
+wp := wpxt.New(10, time.Duration(time.Second*10))
+myopts := map[string]interface{}{
+    "myclient": &http.Client{},
+}
+wp.WithOptions(myopts)
+
+wp.SubmitXT(wpxt.Job{
+    Name: "myjob",
+    Task: func(o wpxt.Options) wpxt.Response {
+        // access options here
+        client := o["myclient"]
+    }, 
+})
+```
+
+#### Supply options per job
+
+```golang
+import (
+    wpxt "github.com/oze4/workerpoolxt"
+    // ...
+)
+
+wp := wpxt.New(10, time.Duration(time.Second*10))
+myclient := &http.Client{}
+
+wp.SubmitXT(wpxt.Job{
+    Name: "myjob",
+    Options: map[string]interface{}{
+        "http": myclient 
+    },
+    Task: func(o wpxt.Options) wpxt.Response {
+        // access options here
+        httpclient := o["http"]
+    }, 
+})
 ```

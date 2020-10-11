@@ -269,3 +269,46 @@ func TestPerJobOptions(t *testing.T) {
 		}
 	}
 }
+
+func TestPerJobOptionsOverrideDefaultOptions(t *testing.T) {
+	wp := New(3, time.Duration(time.Second*10))
+	// set default options so we can verify they were overwritten by per job options
+	opts := map[string]interface{}{"default": "value"}
+	wp.WithOptions(opts)
+	wp.SubmitXT(Job{
+		Name: "job 1",
+		Task: func(o Options) Response {
+			// Set data to our opts myvar
+			return Response{Data: o["var"]}
+		},
+		Options: map[string]interface{}{"var": "job1value"},
+	})
+	wp.SubmitXT(Job{
+		Name: "job 2",
+		Task: func(o Options) Response {
+			// Set data to our opts myvar
+			return Response{Data: o["var"]}
+		},
+		Options: map[string]interface{}{"var": "job2value"},
+	})
+
+	res := wp.StopWaitXT()
+	for _, result := range res {
+		if result.Name() == "" {
+			t.Fatalf("Expected option %s to be %s but got %s", "var", "not ''", "''")
+		}
+		if result.Data == "" {
+			t.Fatalf("Expected data to not be null on : %s", result.Name())
+		}
+		if result.Name() == "job 1" {
+			if result.Data != "job1value" {
+				t.Fatalf("Expected %s option 'var' to be %s but got %s", result.Name(), "job1value", result.Data)
+			}
+		}
+		if result.Name() == "job 2" {
+			if result.Data != "job2value" {
+				t.Fatalf("Expected %s option 'var' to be %s but got %s", result.Name(), "job2value", result.Data)
+			}
+		}
+	}
+}

@@ -111,13 +111,13 @@ func (wp *WorkerPoolXT) getTimeout(job Job) time.Duration {
 
 // getOptions decides which options to use : default or job
 func (wp *WorkerPoolXT) getOptions(job Job) Options {
-	if wp.options == nil && job.Options == nil {
-		return make(Options)
+	if job.Options != nil {
+		return job.Options
 	}
 	if wp.options != nil {
 		return wp.options
 	}
-	return job.Options
+	return make(Options)
 }
 
 // processResponses listens for anything on the responses chan and appends the response to

@@ -63,58 +63,52 @@ func main() {
 How do I know if a job timed out? How do I handle an error in my job?
 
 ```golang
-package main
-
 import (
-	"fmt"
-	"time"
-
 	wpxt "github.com/oze4/workerpoolxt"
+	// ...
 )
 
-func main() {
-	wp := wpxt.New(3, time.Duration(time.Second*10))
+wp := wpxt.New(3, time.Duration(time.Second*10))
 
-        // Uses default timeout
-	wp.SubmitXT(wpxt.Job{ 
-		Name: "Job 1 will pass",
-		Task: func(o wpxt.Options) wpxt.Response {
-			return wpxt.Response{Data: "yay"}
-		},
-	})
+// Uses default timeout
+wp.SubmitXT(wpxt.Job{ 
+	Name: "Job 1 will pass",
+	Task: func(o wpxt.Options) wpxt.Response {
+		return wpxt.Response{Data: "yay"}
+	},
+})
 
-        // Uses custom timeout
-	// This job is configured to timeout on purpose
-	wp.SubmitXT(wpxt.Job{ 
-		Name:    "Job 2 will timeout",
-		Timeout: time.Duration(time.Millisecond * 1),
-		Task: func(o wpxt.Options) wpxt.Response {
-		        // Simulate long running task
-			time.Sleep(time.Second * 20) 
-			return wpxt.Response{Data: "timedout"}
-		},
-	})
+// Uses custom timeout
+// This job is configured to timeout on purpose
+wp.SubmitXT(wpxt.Job{ 
+	Name:    "Job 2 will timeout",
+	Timeout: time.Duration(time.Millisecond * 1),
+	Task: func(o wpxt.Options) wpxt.Response {
+	  // Simulate long running task
+		time.Sleep(time.Second * 20) 
+		return wpxt.Response{Data: "timedout"}
+	},
+})
 
-        // Or if you encounter an error within the code in your job
-	wp.SubmitXT(wpxt.Job{ 
-		Name: "Job 3 will encounter an error",
-		Task: func(o wpxt.Options) wpxt.Response {
-			err := fmt.Errorf("ErrorPretendException : something failed")
-			if err != nil {
-				return wpxt.Response{Error: err}
-			}
-			return wpxt.Response{Data: "error"}
-		},
-	})
-
-	results := wp.StopWaitXT()
-
-	for _, r := range results {
-		if r.Error != nil {
-			fmt.Println(r.Name(), "has failed with error :", r.Error.Error())
-		} else {
-			fmt.Println(r.Name(), "has passed successfully")
+// Or if you encounter an error within the code in your job
+wp.SubmitXT(wpxt.Job{ 
+	Name: "Job 3 will encounter an error",
+	Task: func(o wpxt.Options) wpxt.Response {
+		err := fmt.Errorf("ErrorPretendException : something failed")
+		if err != nil {
+			return wpxt.Response{Error: err}
 		}
+		return wpxt.Response{Data: "error"}
+	},
+})
+
+results := wp.StopWaitXT()
+
+for _, r := range results {
+	if r.Error != nil {
+		fmt.Println(r.Name(), "has failed with error :", r.Error.Error())
+	} else {
+		fmt.Println(r.Name(), "has passed successfully")
 	}
 }
 
@@ -130,7 +124,7 @@ func main() {
  - Options are nothing more than `map[string]interface{}` so that you may supply anything you wish. This also simplifies accessing options within a job.
  - You can supply options along with the workerpool, or on a per job basis. 
  - **If a job has options set, it overrides the defaults**
- - **We do not merge options**.
+ - **We do not merge options**
 
 #### Supply default options
 
@@ -164,16 +158,31 @@ import (
 )
 
 wp := wpxt.New(10, time.Duration(time.Second*10))
-myclient := &http.Client{}
 
+httpclient := &http.Client{}
+k8s := kubernetes.Clientset{}
+
+// This Job Only Needs an HTTP Client
 wp.SubmitXT(wpxt.Job{
-    Name: "myjob",
+    Name: "This Job Only Needs an HTTP Client",
     Options: map[string]interface{}{
         "http": myclient 
     },
     Task: func(o wpxt.Options) wpxt.Response {
         // access options here
         httpclient := o["http"]
+    }, 
+})
+
+// This Job Only Needs Kubernetes Clientset
+wp.SubmitXT(wpxt.Job{
+    Name: "This Job Only Needs Kubernetes Clientset",
+    Options: map[string]interface{}{
+        "kube": k8s 
+    },
+    Task: func(o wpxt.Options) wpxt.Response {
+        // access options here
+        kubernetesclient := o["kube"]
     }, 
 })
 ```

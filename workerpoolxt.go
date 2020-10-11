@@ -2,6 +2,7 @@ package workerpoolxt
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/gammazero/workerpool"
@@ -20,28 +21,15 @@ func New(maxWorkers int, defaultJobTimeout time.Duration) *WorkerPoolXT {
 	return w
 }
 
-// WorkerPoolXT extends `github.com/gammazero/workerpool` by:
-//  - Collects the output of all jobs so you can work with it later
-//  - Job runtime duration stats baked in
-//  - Job timeouts; global timeout or per job basis
-//  - Lets you "pause" to gather results at any given time
+// WorkerPoolXT extends `github.com/gammazero/workerpool`
 type WorkerPoolXT struct {
-	// Embed WorkerPool
 	*workerpool.WorkerPool
-	// defaultTimeout is the default timeout for each job. If a timeout is not specified along with
-	// the job, we use this timeout
 	defaultTimeout time.Duration
-	// responsesChan is a chan to send job results on
-	responsesChan chan Response
-	// responses stores job results. Since jobs run as soon as they are submitted, we have to store
-	// the results so we can return them when `StopWaitXT()` is called
-	responses []Response
-	// No upper limit on # of jobs queued, only workers active means we canprovide an unbuffered
-	// responsesChan without worrying about deadlock but we also need to know when to stop blocking.
-	// When anything is sent to the killswitch chan we stop processing Responses
-	killswitch chan bool
-	// options are optional default options that get passed to each job
-	options Options
+	responsesChan  chan Response
+	responses      []Response
+	killswitch     chan bool
+	options        Options
+	once           sync.Once
 }
 
 // SubmitXT submits a job. Allows you to not only submit a job, but get the response from it
@@ -51,8 +39,7 @@ func (wp *WorkerPoolXT) SubmitXT(job Job) {
 
 // StopWaitXT gets results then kills the worker pool. You cannot add jobs after calling `StopWaitXT()``
 func (wp *WorkerPoolXT) StopWaitXT() (rs []Response) {
-	wp.StopWait()
-	wp.stop()
+	wp.kill(false)
 	return wp.responses
 }
 
@@ -60,6 +47,36 @@ func (wp *WorkerPoolXT) StopWaitXT() (rs []Response) {
 // which will override the default options.
 func (wp *WorkerPoolXT) WithOptions(o Options) {
 	wp.options = o
+}
+
+// kill either stops the worker pool now or later
+func (wp *WorkerPoolXT) kill(now bool) {
+	wp.once.Do(func() {
+		if now {
+			wp.Stop()
+		} else {
+			wp.StopWait()
+		}
+		close(wp.responsesChan)
+		wp.killswitch <- true
+	})
+}
+
+// processResponses listens for anything on the responses chan and appends the response to
+// wp.responses. No upper limit on # of jobs queued, only workers active, means we can provide
+// an unbuffered response chan without worrying about deadlock
+func (wp *WorkerPoolXT) processResponses() {
+	for {
+		select {
+		case response, ok := <-wp.responsesChan:
+			if !ok {
+				goto Done
+			}
+			wp.responses = append(wp.responses, response)
+		}
+	}
+Done:
+	<-wp.killswitch
 }
 
 // wrap generates the func that we pass to Submit.
@@ -118,34 +135,6 @@ func (wp *WorkerPoolXT) getOptions(job Job) Options {
 		return wp.options
 	}
 	return make(Options)
-}
-
-// processResponses listens for anything on the responses chan and appends the response to
-// wp.responses. No upper limit on # of jobs queued, only workers active, means we can provide
-// an unbuffered response chan without worrying about deadlock
-func (wp *WorkerPoolXT) processResponses() {
-	for {
-		select {
-		case response, ok := <-wp.responsesChan:
-			if !ok {
-				goto Done
-			}
-			wp.responses = append(wp.responses, response)
-		}
-	}
-Done:
-	<-wp.killswitch
-}
-
-// kill sends the signal to stop blocking and return
-func (wp *WorkerPoolXT) kill() {
-	wp.killswitch <- true
-}
-
-// stop closes response chan and triggers our killswitch
-func (wp *WorkerPoolXT) stop() {
-	close(wp.responsesChan)
-	wp.kill()
 }
 
 // Options hold misc options

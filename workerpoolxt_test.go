@@ -2,6 +2,7 @@ package workerpoolxt
 
 import (
 	//"reflect"
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -36,6 +37,84 @@ func TestOverflow(t *testing.T) {
 	qlen := wp.WorkerPool.WaitingQueueSize()
 	if qlen != 62 {
 		t.Fatal("Expected 62 tasks in waiting queue, have", qlen)
+	}
+}
+
+func TestStopRace(t *testing.T) {
+	wp := New(20, time.Duration(time.Second*10))
+
+	// Start and pause all workers.
+	ctx, cancel := context.WithCancel(context.Background())
+	wp.Pause(ctx)
+
+	const doneCallers = 5
+	stopDone := make(chan struct{}, doneCallers)
+	for i := 0; i < doneCallers; i++ {
+		go func() {
+			wp.Stop()
+			stopDone <- struct{}{}
+		}()
+	}
+
+	select {
+	case <-stopDone:
+		t.Fatal("Stop should not return in any goroutine")
+	default:
+	}
+
+	cancel()
+
+	timeout := time.After(time.Second)
+	for i := 0; i < doneCallers; i++ {
+		select {
+		case <-stopDone:
+		case <-timeout:
+			t.Fatal("timedout waiting for Stop to return")
+		}
+	}
+}
+
+// Run this test with race detector to test that using WaitingQueueSize has no
+// race condition
+func TestWaitingQueueSizeRace(t *testing.T) {
+	const (
+		goroutines = 10
+		tasks      = 20
+		workers    = 5
+	)
+	wp := New(workers, time.Duration(time.Second*10))
+	maxChan := make(chan int)
+	for g := 0; g < goroutines; g++ {
+		go func() {
+			max := 0
+			// Submit 100 tasks, checking waiting queue size each time.  Report
+			// the maximum queue size seen.
+			for i := 0; i < tasks; i++ {
+				wp.Submit(func() {
+					time.Sleep(time.Microsecond)
+				})
+				waiting := wp.WaitingQueueSize()
+				if waiting > max {
+					max = waiting
+				}
+			}
+			maxChan <- max
+		}()
+	}
+
+	// Find maximum queuesize seen by any goroutine.
+	maxMax := 0
+	for g := 0; g < goroutines; g++ {
+		max := <-maxChan
+		if max > maxMax {
+			maxMax = max
+		}
+	}
+	if maxMax == 0 {
+		t.Error("expected to see waiting queue size > 0")
+	}
+	if maxMax >= goroutines*tasks {
+		t.Error("should not have seen all tasks on waiting queue")
 	}
 }
 

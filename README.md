@@ -15,6 +15,7 @@ How we extend `workerpool`:
   - Pass data from outside of the job without having to worry about closures or generators
   - Set [default options on the workerpool](#supply-default-options)
   - or [on a per job basis](#supply-options-per-job)
+  - **If a job has options set, it overrides the defaults \**we do not merge options***\*
 - Job runtime statistics
   - Runtime duration stats are baked in
   - Access via `somejobresult.RuntimeDuration() //-> time.Duration`
@@ -126,7 +127,9 @@ func main() {
 
  - Providing options is optional
  - Options are nothing more than `map[string]interface{}` so that you may supply anything you wish. This also simplifies accessing options within a job.
- - You can supply options along with the workerpool, or on a per job basis. If a job has options set, it overrides the defaults **it does not merge options**.
+ - You can supply options along with the workerpool, or on a per job basis. 
+ - **If a job has options set, it overrides the defaults**
+ - **We do not merge options**.
 
 #### Supply default options
 

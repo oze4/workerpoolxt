@@ -8,8 +8,56 @@ import (
 	"time"
 )
 
+var (
+	defaultTimeout = time.Duration(time.Second * 10)
+)
+
+func TestSubmitWithSubmitXT_UsingStopWaitXT(t *testing.T) {
+	wp := New(10, defaultTimeout)
+	totalResults := 0
+	expectedTotalResults := 2
+	wp.Submit(func() {
+		time.Sleep(time.Millisecond * 2)
+		totalResults++
+	})
+	wp.SubmitXT(Job{
+		Name: "From SubmitXT()",
+		Task: func(o Options) Response {
+			time.Sleep(time.Millisecond * 1)
+			totalResults++
+			return Response{Data: "SubmitXT() after sleep"}
+		},
+	})
+	_ = wp.StopWaitXT()
+	if totalResults != expectedTotalResults {
+		t.Fatalf("expect %d results : got %d results", expectedTotalResults, totalResults)
+	}
+}
+
+func TestSubmitWithSubmitXT_UsingStopWait(t *testing.T) {
+	wp := New(10, defaultTimeout)
+	totalResults := 0
+	expectedTotalResults := 2
+	wp.Submit(func() {
+		time.Sleep(time.Millisecond * 2)
+		totalResults++
+	})
+	wp.SubmitXT(Job{
+		Name: "From SubmitXT()",
+		Task: func(o Options) Response {
+			time.Sleep(time.Millisecond * 1)
+			totalResults++
+			return Response{Data: "SubmitXT() after sleep"}
+		},
+	})
+	wp.StopWait()
+	if totalResults != expectedTotalResults {
+		t.Fatalf("expect %d results : got %d results", expectedTotalResults, totalResults)
+	}
+}
+
 func TestOverflow(t *testing.T) {
-	wp := New(2, time.Duration(time.Second*10))
+	wp := New(2, defaultTimeout)
 	releaseChan := make(chan struct{})
 
 	// Start workers, and have them all wait on a channel before completing.
@@ -41,7 +89,7 @@ func TestOverflow(t *testing.T) {
 }
 
 func TestStopRace(t *testing.T) {
-	wp := New(20, time.Duration(time.Second*10))
+	wp := New(20, defaultTimeout)
 	workRelChan := make(chan struct{})
 
 	var started sync.WaitGroup
@@ -92,7 +140,7 @@ func TestWaitingQueueSizeRace(t *testing.T) {
 		tasks      = 20
 		workers    = 5
 	)
-	wp := New(workers, time.Duration(time.Second*10))
+	wp := New(workers, defaultTimeout)
 	maxChan := make(chan int)
 	for g := 0; g < goroutines; g++ {
 		go func() {
@@ -169,7 +217,7 @@ func TestSubmitXT_HowToHandleErrors(t *testing.T) {
 func TestResultCountEqualsJobCount(t *testing.T) {
 	numJobs := 500
 	numworkers := 10
-	wp := New(numworkers, time.Duration(time.Second*10))
+	wp := New(numworkers, defaultTimeout)
 	for i := 0; i < numJobs; i++ {
 		ii := i
 		wp.SubmitXT(Job{
@@ -185,7 +233,7 @@ func TestResultCountEqualsJobCount(t *testing.T) {
 }
 
 func TestRuntimeDuration(t *testing.T) {
-	wp := New(3, time.Duration(time.Second*10))
+	wp := New(3, defaultTimeout)
 	wp.SubmitXT(Job{
 		Name: "test",
 		Task: func(o Options) Response {
@@ -203,7 +251,7 @@ func TestRuntimeDuration(t *testing.T) {
 
 func TestName(t *testing.T) {
 	thename := "test99"
-	wp := New(3, time.Duration(time.Second*10))
+	wp := New(3, defaultTimeout)
 	wp.SubmitXT(Job{
 		Name: thename,
 		Task: func(o Options) Response {
@@ -223,7 +271,7 @@ func TestDefaultOptions(t *testing.T) {
 	varvalue := "myval"
 	opts := map[string]interface{}{varname: varvalue}
 	fmt.Println(opts[varname])
-	wp := New(3, time.Duration(time.Second*10))
+	wp := New(3, defaultTimeout)
 	wp.WithOptions(opts)
 	wp.SubmitXT(Job{
 		Name: "testing default options",
@@ -242,7 +290,7 @@ func TestDefaultOptions(t *testing.T) {
 }
 
 func TestPerJobOptions(t *testing.T) {
-	wp := New(3, time.Duration(time.Second*10))
+	wp := New(3, defaultTimeout)
 	wp.SubmitXT(Job{
 		Name: "job 1",
 		Task: func(o Options) Response {
@@ -282,7 +330,7 @@ func TestPerJobOptions(t *testing.T) {
 }
 
 func TestPerJobOptionsOverrideDefaultOptions(t *testing.T) {
-	wp := New(3, time.Duration(time.Second*10))
+	wp := New(3, defaultTimeout)
 	// set default options so we can verify they were overwritten by per job options
 	opts := map[string]interface{}{"default": "value"}
 	wp.WithOptions(opts)
@@ -328,7 +376,7 @@ func TestPerJobOptionsOverrideDefaultOptions(t *testing.T) {
  * This is a "cheap" test.  More thorough tests need to be performed on wp.stop(true)
  */
 func TestStopNow(t *testing.T) {
-	wp := New(3, time.Duration(time.Second*10))
+	wp := New(3, defaultTimeout)
 	wp.SubmitXT(Job{
 		Name: "job 1",
 		Task: func(o Options) Response {

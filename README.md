@@ -1,12 +1,29 @@
-# workerpoolxt
-[![Build](https://github.com/oze4/workerpoolxt/workflows/Build/badge.svg?branch=master)](https://github.com/oze4/workerpoolxt/actions)
-[![codecov](https://codecov.io/gh/oze4/workerpoolxt/branch/master/graph/badge.svg)](https://codecov.io/gh/oze4/workerpoolxt)
-[![Go Report Card](https://goreportcard.com/badge/github.com/oze4/workerpoolxt)](https://goreportcard.com/report/github.com/oze4/workerpoolxt)
+<p align="center">
+  <h1 align="center">workerpoolxt</h1>	
+</p>
 
-#### Extends [github.com/gammazero/workerpool](https://github.com/gammazero/workerpool). Retain access to underlying `*WorkerPool` object as if you imported `workerpool` directly
+<p align="center">
+  <a href="https://github.com/oze4/workerpoolxt/actions">
+    <img title="Build" src="https://github.com/oze4/workerpoolxt/workflows/Build/badge.svg?branch=master" >
+  </a>
+  <a href="https://codecov.io/gh/oze4/workerpoolxt">
+    <img title="codecov" src="https://codecov.io/gh/oze4/workerpoolxt/branch/master/graph/badge.svg" >
+  </a>
+  <a href="https://goreportcard.com/report/github.com/oze4/workerpoolxt">
+    <img title="Go Report Card" src="https://goreportcard.com/badge/github.com/oze4/workerpoolxt" >
+  </a>
+  <a href="https://github.com/oze4/workerpoolxt/blob/master/LICENSE">
+    <img title="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" >
+  </a>
+  <a href="https://pkg.go.dev/github.com/oze4/workerpoolxt">
+    <img title="PkgGoDev" src="https://pkg.go.dev/badge/github.com/oze4/workerpoolxt" >
+  </a>
+</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/oze4/workerpoolxt/blob/master/LICENSE)
-[![PkgGoDev](https://pkg.go.dev/badge/github.com/oze4/workerpoolxt)](https://pkg.go.dev/github.com/oze4/workerpoolxt)
+<p align="center">
+Extends <a href="https://github.com/gammazero/workerpool">https://github.com/gammazero/workerpool</a>. <br/>Retain access to underlying <code>*WorkerPool</code> object as if you imported <code>workerpool</code> directly
+</p>
+
 
 ### How we extend `workerpool`
 

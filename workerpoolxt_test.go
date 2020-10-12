@@ -37,23 +37,23 @@ func TestSubmitWithSubmitXT_UsingStopWaitXT(t *testing.T) {
 }
 
 func TestSubmitWithSubmitXT_UsingStopWait(t *testing.T) {
+	var totalResults uint64
 	wp := New(10, defaultTimeout)
-	totalResults := 0
 	expectedTotalResults := 2
 	wp.Submit(func() {
 		time.Sleep(time.Millisecond * 2)
-		totalResults++
+		atomic.AddUint64(&totalResults, 1)
 	})
 	wp.SubmitXT(Job{
 		Name: "From SubmitXT()",
 		Task: func(o Options) Response {
 			time.Sleep(time.Millisecond * 1)
-			totalResults++
+			atomic.AddUint64(&totalResults, 1)
 			return Response{Data: "SubmitXT() after sleep"}
 		},
 	})
 	wp.StopWait()
-	if totalResults != expectedTotalResults {
+	if int(atomic.LoadUint64(&totalResults)) != expectedTotalResults {
 		t.Fatalf("expect %d results : got %d results", expectedTotalResults, totalResults)
 	}
 }

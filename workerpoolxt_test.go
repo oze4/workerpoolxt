@@ -1,20 +1,28 @@
 package workerpoolxt
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
-
-	//"reflect"
-	"fmt"
 	"testing"
 	"time"
 )
+
+/**
+ *
+ * Any test ending in `_Special` will have the following command ran against it:
+ *
+ *   > go test -race -run ^Test.*Special$ -count=2000
+ *
+ */
 
 var (
 	defaultTimeout = time.Duration(time.Second * 10)
 )
 
-func TestSubmitWithSubmitXT_UsingStopWaitXT(t *testing.T) {
+func TestSubmitWithSubmitXT_UsingStopWaitXT_Special(t *testing.T) {
+	t.Parallel()
+
 	var totalResults uint64
 	wp := New(10, defaultTimeout)
 	expectedTotalResults := 2
@@ -36,7 +44,9 @@ func TestSubmitWithSubmitXT_UsingStopWaitXT(t *testing.T) {
 	}
 }
 
-func TestSubmitWithSubmitXT_UsingStopWait(t *testing.T) {
+func TestSubmitWithSubmitXT_UsingStopWait_Special(t *testing.T) {
+	t.Parallel()
+
 	var totalResults uint64
 	wp := New(10, defaultTimeout)
 	expectedTotalResults := 2
@@ -58,7 +68,9 @@ func TestSubmitWithSubmitXT_UsingStopWait(t *testing.T) {
 	}
 }
 
-func TestOverflow(t *testing.T) {
+func TestOverflow_Special(t *testing.T) {
+	t.Parallel()
+
 	wp := New(2, defaultTimeout)
 	releaseChan := make(chan struct{})
 
@@ -91,6 +103,7 @@ func TestOverflow(t *testing.T) {
 }
 
 func TestStopRace(t *testing.T) {
+	t.Parallel()
 	wp := New(20, defaultTimeout)
 	workRelChan := make(chan struct{})
 
@@ -179,6 +192,7 @@ func TestWaitingQueueSizeRace(t *testing.T) {
 }
 
 func TestSubmitXT_HowToHandleErrors(t *testing.T) {
+	t.Parallel()
 	wp := New(3, time.Duration(time.Second*5))
 	wp.SubmitXT(Job{ // Uses default timeout
 		Name: "Job 1 will pass",
@@ -202,7 +216,6 @@ func TestSubmitXT_HowToHandleErrors(t *testing.T) {
 			return Response{Data: "uhoh"}
 		}})
 	results := wp.StopWaitXT()
-	fmt.Println("aa")
 	failed, succeeded := 0, 0
 	for _, r := range results {
 		if r.Error != nil {
@@ -217,6 +230,7 @@ func TestSubmitXT_HowToHandleErrors(t *testing.T) {
 }
 
 func TestResultCountEqualsJobCount(t *testing.T) {
+	t.Parallel()
 	numJobs := 500
 	numworkers := 10
 	wp := New(numworkers, defaultTimeout)

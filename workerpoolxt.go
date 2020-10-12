@@ -79,7 +79,7 @@ Done:
 
 // wrap generates the func that we pass to Submit.
 // - If a timeout is not supplied with the job, we use the global default supplied when `New()` is called
-// - If optoins are not supplied with the job, we use the global default supplied when `New()` is called
+// - If options are not supplied with the job, we use the global default supplied when `New()` is called
 // - Responsible for injecting timeout and runtime duration
 func (wp *WorkerPoolXT) wrap(job Job) func() {
 	timeout := wp.getTimeout(job)

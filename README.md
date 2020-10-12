@@ -177,18 +177,19 @@ import (
 
 wp := wpxt.New(10, time.Duration(time.Second*10))
 
-httpclient := &http.Client{}
-k8s := kubernetes.Clientset{}
+myhttpclient := &http.Client{}
+myk8sclient := kubernetes.Clientset{}
 
 // This Job Only Needs an HTTP Client
 wp.SubmitXT(wpxt.Job{
     Name: "This Job Only Needs an HTTP Client",
     Options: map[string]interface{}{
-        "http": myclient 
+        "http": myhttpclient, 
     },
     Task: func(o wpxt.Options) wpxt.Response {
         // access options here
-        httpclient := o["http"]
+				httpclient := o["http"]
+				// ... do work with `httpclient`
     }, 
 })
 
@@ -196,11 +197,12 @@ wp.SubmitXT(wpxt.Job{
 wp.SubmitXT(wpxt.Job{
     Name: "This Job Only Needs Kubernetes Clientset",
     Options: map[string]interface{}{
-        "kube": k8s 
+        "kube": myk8sclient,
     },
     Task: func(o wpxt.Options) wpxt.Response {
         // access options here
-        kubernetesclient := o["kube"]
+				kubernetesclient := o["kube"]
+				// ... do work with `kubernetesclient`
     }, 
 })
 ```

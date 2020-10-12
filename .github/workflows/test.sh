@@ -1,24 +1,22 @@
 #!/usr/bin/env bash
-
-# ================================================= #
-#                                                   #
-# Thanks to https://github.com/gammazero/workerpool #
-#                                                   #
-# ================================================= #
-
+# ====================================================================== #
+# Thanks to https://github.com/gammazero/workerpool for the inspiration! #
+# ====================================================================== #
 set -e
-echo "" > coverage.out
+
+profile=profile.out; coverage=coverage.out; special_count=2000;
+
+echo "" >$coverage
 
 for d in $(go list ./... | grep -v vendor); do
-    # specific race condition needs to be thoroughly tested to show its ugly face (hence -count=100000)
-    go test -race -run ^TestStopRace$ -count=2000 $d 
-    go test -race -run ^TestSubmitWithSubmitXT_UsingStopWaitXT$ -count=2000 $d
-    go test -race -run ^TestSubmitWithSubmitXT_UsingStopWait$ -count=2000 $d
-    # basic, defaut test cmd
-    go test -race -coverprofile=profile.out -covermode=atomic $d
-
-    if [ -f profile.out ]; then
-        cat profile.out >> coverage.out
-        rm profile.out
+    # Basic, defaut test that generates codecov
+    go test -v -race -coverprofile=$profile -covermode=atomic $d
+    printf "\n%s\n" "[STARTING] : '^Test.*_Special$' : this may take a while"
+    # Includes any test ending in `_Special`
+    go test -race -run ^Test.*_Special$ -count=$special_count $d
+    # Cleanup
+    if [ -f $profile ]; then
+        cat $profile >>$coverage
+        rm $profile
     fi
 done

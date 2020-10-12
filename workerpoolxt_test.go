@@ -1,6 +1,7 @@
 package workerpoolxt
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -401,4 +402,33 @@ func TestStopNow(t *testing.T) {
 		},
 	})
 	wp.stop(true)
+}
+
+func TestRetry(t *testing.T) {
+	wp := New(3, defaultTimeout)
+	expectedError := errors.New("simulating error")
+	expectedName := "backoff_test"
+	expectedResultsLen := 2
+	wp.SubmitXT(Job{
+		Name: expectedName,
+		Task: func(o Options) Response {
+			return Response{Error: expectedError}
+		},
+		Retry: 3,
+	})
+	wp.SubmitXT(Job{
+		Name: "simulate_success",
+		Task: func(o Options) Response {
+			return Response{Data: "success"}
+		},
+	})
+	results := wp.StopWaitXT()
+	if len(results) != expectedResultsLen {
+		t.Fatalf("expected results len of %d, got results len of %d", expectedResultsLen, len(results))
+	}
+	for _, r := range results {
+		if r.Name() == expectedName && r.Error != expectedError {
+			t.Fatalf("Expected error %s : got error %s", expectedError, r.Error)
+		}
+	}
 }

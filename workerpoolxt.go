@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gammazero/workerpool"
 )
 
@@ -77,6 +78,36 @@ Done:
 	<-wp.killswitch
 }
 
+// work should be ran on it's own goroutine
+// Sorts out job metadata and options
+// Runs user provided Job.Task
+func (wp *WorkerPoolXT) work(ctx context.Context, done context.CancelFunc, j Job, ts time.Time, bkoff backoff.BackOff) {
+	jobtask := func() error {
+		o := wp.getOptions(j)
+		// Run user provided task & set job specific metadata
+		f := j.Task(o)
+		if f.Error != nil {
+			return f.Error
+		}
+		f.runtimeDuration = time.Since(ts)
+		f.name = j.Name
+		// This check is important as it keeps from sending duplicate responses on our responses chan
+		if ctx.Err() == nil {
+			wp.responsesChan <- f
+		}
+		return nil
+	}
+
+	if bkoff != nil {
+		if e := backoff.Retry(jobtask, bkoff); e != nil {
+			wp.responsesChan <- Response{name: j.Name, Error: e}
+		}
+	} else {
+		jobtask()
+	}
+	done()
+}
+
 // wrap generates the func that we pass to Submit.
 // - If a timeout is not supplied with the job, we use the global default supplied when `New()` is called
 // - If options are not supplied with the job, we use the global default supplied when `New()` is called
@@ -88,18 +119,12 @@ func (wp *WorkerPoolXT) wrap(job Job) func() {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		start := time.Now()
 
-		go func(ctx context.Context, done context.CancelFunc, j Job, ts time.Time) {
-			o := wp.getOptions(j)
-			// Run user provided task & set job specific metadata
-			f := j.Task(o)
-			f.runtimeDuration = time.Since(ts)
-			f.name = j.Name
-			// This check is important as it keeps from sending duplicate responses on our responses chan
-			if ctx.Err() == nil {
-				wp.responsesChan <- f
-			}
-			done()
-		}(ctx, cancel, job, start)
+		if job.Retry == 0 {
+			go wp.work(ctx, cancel, job, start, nil)
+		} else {
+			boff := backoff.WithMaxRetries(backoff.NewExponentialBackOff(), uint64(job.Retry))
+			go wp.work(ctx, cancel, job, start, boff)
+		}
 
 		select {
 		// If our timeout has passed, return an error object, disregarding any response from job which timed out
@@ -144,6 +169,7 @@ type Job struct {
 	Task    func(Options) Response
 	Timeout time.Duration
 	Options Options
+	Retry   int
 }
 
 // Response holds job results

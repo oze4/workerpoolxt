@@ -3,27 +3,26 @@
 [![codecov](https://codecov.io/gh/oze4/workerpoolxt/branch/master/graph/badge.svg)](https://codecov.io/gh/oze4/workerpoolxt)
 [![Go Report Card](https://goreportcard.com/badge/github.com/oze4/workerpoolxt)](https://goreportcard.com/report/github.com/oze4/workerpoolxt)
 
-### Extends [github.com/gammazero/workerpool](https://github.com/gammazero/workerpool)
+#### Extends [github.com/gammazero/workerpool](https://github.com/gammazero/workerpool). Retain access to underlying `*WorkerPool` object as if you imported `workerpool` directly
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/oze4/workerpoolxt/blob/master/LICENSE)
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/oze4/workerpoolxt)](https://pkg.go.dev/github.com/oze4/workerpoolxt)
 
-- Retain access to underlying `*WorkerPool` object as if you imported `workerpool` directly
+### How we extend `workerpool`
 
-- How we extend `workerpool`
-  - [Get results from each job](#basic-example)
-    - We collect job results so you can work with them later
-    - [How to handle errors](#how-to-handle-errors)
-    - [How do I know if a job timed out](#how-to-handle-errors)
-  - [Pass any variable/data/etc into each job via Options](#options)
-    - Pass data from outside of the job without having to worry about closures or generators
-    - Set [default options on the workerpool](#supply-default-options) or [on a per job basis](#supply-options-per-job)
-    - **If a job has options set, it overrides the defaults \**we do not merge options***\*
-  - Job runtime statistics
-    - Runtime duration stats are baked in
-    - Access via `somejobresult.RuntimeDuration() //-> time.Duration`
-  - [Job timeouts](#basic-example)
-    - Fine tune timeouts on a per job basis
+- [Get results from each job](#basic-example)
+  - We collect job results so you can work with them later
+  - [How to handle errors](#how-to-handle-errors)
+  - [How do I know if a job timed out](#how-to-handle-errors)
+- [Pass any variable/data/etc into each job via Options](#options)
+  - Pass data from outside of the job without having to worry about closures or generators
+  - Set [default options on the workerpool](#supply-default-options) or [on a per job basis](#supply-options-per-job)
+  - **If a job has options set, it overrides the defaults \**we do not merge options***\*
+- Job runtime statistics
+  - Runtime duration stats are baked in
+  - Access via `somejobresult.RuntimeDuration() //-> time.Duration`
+- [Job timeouts](#basic-example)
+  - Fine tune timeouts on a per job basis
 
 ### Basic example
 

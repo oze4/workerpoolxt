@@ -86,7 +86,7 @@ func (wp *WorkerPoolXT) work(ctx context.Context, done context.CancelFunc, j Job
 		o := wp.getOptions(j)
 		// Run user provided task & set job specific metadata
 		f := j.Task(o)
-		if f.Error != nil {
+		if f.Error != nil && bkoff != nil {
 			return f.Error
 		}
 		f.runtimeDuration = time.Since(ts)

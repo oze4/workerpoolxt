@@ -88,7 +88,9 @@ import (
 
 wp := wpxt.New(3, time.Duration(time.Second*10))
 
-// Uses default timeout
+/**
+ * Uses default timeout
+ */
 wp.SubmitXT(wpxt.Job{ 
 	Name: "Job 1 will pass",
 	Task: func(o wpxt.Options) wpxt.Response {
@@ -96,19 +98,23 @@ wp.SubmitXT(wpxt.Job{
 	},
 })
 
-// Uses custom timeout
-// This job is configured to timeout on purpose
+/**
+ * Uses custom timeout. 
+ * This job is configured to timeout on purpose
+ */
 wp.SubmitXT(wpxt.Job{ 
 	Name:    "Job 2 will timeout",
 	Timeout: time.Duration(time.Millisecond * 1),
 	Task: func(o wpxt.Options) wpxt.Response {
-	  // Simulate long running task
+		// Simulate long running task
 		time.Sleep(time.Second * 20) 
 		return wpxt.Response{Data: "timedout"}
 	},
 })
 
-// Or if you encounter an error within the code in your job
+/**
+ * Or if you encounter an error within the code in your job
+ */
 wp.SubmitXT(wpxt.Job{ 
 	Name: "Job 3 will encounter an error",
 	Task: func(o wpxt.Options) wpxt.Response {
@@ -130,7 +136,7 @@ for _, r := range results {
 	}
 }
 
-// ->
+//->
 // Job 3 will encounter an error has failed with error : ErrorPretendException : something failed
 // Job 1 will pass has passed successfully
 // Job 2 will timeout has failed with error : context deadline exceeded
@@ -141,8 +147,7 @@ for _, r := range results {
  - Providing options is optional
  - Options are nothing more than `map[string]interface{}` so that you may supply anything you wish. This also simplifies accessing options within a job.
  - You can supply options along with the workerpool, or on a per job basis. 
- - **If a job has options set, it overrides the defaults**
- - **We do not merge options**
+ - **If a job has options set, it overrides the defaults *we DO NOT merge options***
 
 #### Supply default options
 
@@ -188,8 +193,8 @@ wp.SubmitXT(wpxt.Job{
     },
     Task: func(o wpxt.Options) wpxt.Response {
         // access options here
-				httpclient := o["http"]
-				// ... do work with `httpclient`
+	httpclient := o["http"]
+	// ... do work with `httpclient`
     }, 
 })
 
@@ -201,8 +206,8 @@ wp.SubmitXT(wpxt.Job{
     },
     Task: func(o wpxt.Options) wpxt.Response {
         // access options here
-				kubernetesclient := o["kube"]
-				// ... do work with `kubernetesclient`
+	kubernetesclient := o["kube"]
+	// ... do work with `kubernetesclient`
     }, 
 })
 ```

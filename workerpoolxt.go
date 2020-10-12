@@ -37,7 +37,7 @@ func (wp *WorkerPoolXT) SubmitXT(job Job) {
 	wp.Submit(wp.wrap(job))
 }
 
-// StopWaitXT gets results then kills the worker pool. You cannot add jobs after calling `StopWaitXT()``
+// StopWaitXT gets results then kills the worker pool. You cannot add jobs after calling `StopWaitXT()`
 func (wp *WorkerPoolXT) StopWaitXT() (rs []Response) {
 	wp.stop(false)
 	return wp.responses

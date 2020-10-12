@@ -2,11 +2,13 @@
 [![Build](https://github.com/oze4/workerpoolxt/workflows/Build/badge.svg?branch=master)](https://github.com/oze4/workerpoolxt/actions)
 [![codecov](https://codecov.io/gh/oze4/workerpoolxt/branch/master/graph/badge.svg)](https://codecov.io/gh/oze4/workerpoolxt)
 [![Go Report Card](https://goreportcard.com/badge/github.com/oze4/workerpoolxt)](https://goreportcard.com/report/github.com/oze4/workerpoolxt)
+
+### Extends [github.com/gammazero/workerpool](https://github.com/gammazero/workerpool)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/oze4/workerpoolxt/blob/master/LICENSE)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/oze4/workerpoolxt)](https://pkg.go.dev/github.com/oze4/workerpoolxt)
 
-- Worker pool library that extends [github.com/gammazero/workerpool](https://github.com/gammazero/workerpool).
-
-- **Retain access to underlying `*WorkerPool` object as if you imported `workerpool` directly**
+- Retain access to underlying `*WorkerPool` object as if you imported `workerpool` directly
 
 - How we extend `workerpool`
   - [Get results from each job](#basic-example)

@@ -20,9 +20,9 @@
   </a>
 </p>
 
-<p align="center">
-Extends <a href="https://github.com/gammazero/workerpool">https://github.com/gammazero/workerpool</a>. <br/>Retain access to underlying <code>*WorkerPool</code> object as if you imported <code>workerpool</code> directly
-</p>
+Worker pool library that extends [github.com/gammazero/workerpool](https://github.com/gammazero/workerpool).
+
+Allows you to retain access to underlying `*WorkerPool` object as if you imported `workerpool` directly
 
 
 ### How we extend `workerpool`

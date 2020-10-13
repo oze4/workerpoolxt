@@ -1,9 +1,9 @@
-<p align="center">
+
 <h1 align="center">workerpoolxt<span>
 <a href="https://github.com/oze4/workerpoolxt/blob/master/LICENSE">
-<img align="center" alt="GitHub" src="https://img.shields.io/github/license/oze4/workerpoolxt?style=social">
+<img alt="GitHub" src="https://img.shields.io/github/license/oze4/workerpoolxt?style=social">
 </a></span></h1>
-</p>
+
 
 <p align="center">
 <a href="https://github.com/oze4/workerpoolxt/actions?query=workflow%3ABuild">

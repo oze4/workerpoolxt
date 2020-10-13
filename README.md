@@ -87,7 +87,10 @@ func main() {
 ### Results
 
 ```golang
-// ... jobs submitted here
+// ...
+// ... pretend we submitted jobs here
+// ...
+
 results := wp.StopWaitXT() // -> []wpxt.Response
 
 for _, result := range results {

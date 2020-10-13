@@ -208,9 +208,9 @@ wp.SubmitXT(wpxt.Job{
         "kube": myk8sclient,
     },
     Task: func(o wpxt.Options) wpxt.Response {
-      // access options here
-      kubernetesclient := o["kube"]
-      // ... do work with `kubernetesclient`
+        // access options here
+        kubernetesclient := o["kube"]
+        // ... do work with `kubernetesclient`
     },
 })
 ```

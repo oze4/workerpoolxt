@@ -103,7 +103,9 @@ for _, result := range results {
 ### Error Handling
 
 - What if I encounter an error in one of my jobs?
-- How can I handle or check for it?
+- How can I handle or check for errors/timeout?
+
+#### Return Error From Job
 
 ```golang
 // Just set the `Error` field on the `wpxt.Response` you return
@@ -116,6 +118,20 @@ wp.SubmitXT(wpxt.Job{
         }
     },
 })
+```
+
+#### Check For Errors
+
+```golang
+// ... pretend we submitted a bunch of jobs
+//
+// StopWaitXT() returns []wpxt.Response
+// Each response has an `Error` field
+// Whether a timeout, or an error you set
+// Check for it like
+if someResponseFromSomeJob.Error != nil {
+    // ....
+}
 ```
 
 ### Timeouts
@@ -145,15 +161,17 @@ wp.SubmitXT(wpxt.Job{
 
 ```golang
 wp.SubmitXT(wpxt.Job{
-  // This job will retry 5 times if failed,
-  // as long as we have not exceeded our job timeout
-  Retry: 5,
-  Name: "I will retry 5 times",
-  // Set timeout field on job
-  Timeout: time.Duration(time.Millisecond*500),
-  Task: func(o wpxt.Options) wpxt.Response {
-    return wpxt.Response{Error: errors.New("some_err")}
-  },
+    // This job is configured to fail immediately, 
+    // therefore it will retry 5 times
+    // (as long as we have not exceeded our job timeout)
+    Retry: 5,
+    // ^^^^^^
+    Name: "I will retry 5 times",
+    // Set timeout field on job
+    Timeout: time.Duration(time.Millisecond*500),
+    Task: func(o wpxt.Options) wpxt.Response {
+        return wpxt.Response{Error: errors.New("some_err")}
+    },
 })
 ```
 

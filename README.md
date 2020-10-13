@@ -12,6 +12,8 @@
   <a href="https://pkg.go.dev/github.com/oze4/workerpoolxt">
     <img title="PkgGoDev" src="https://pkg.go.dev/badge/github.com/oze4/workerpoolxt" >
   </a>
+  <br />
+  <a href="https://www.codacy.com/gh/oze4/workerpoolxt/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=oze4/workerpoolxt&amp;utm_campaign=Badge_Grade"><img src="https://app.codacy.com/project/badge/Grade/782dd1e1d8844b129f4de4df7984b537"/></a>
   <a href="https://goreportcard.com/report/github.com/oze4/workerpoolxt">
     <img title="Go Report Card" src="https://goreportcard.com/badge/github.com/oze4/workerpoolxt" >
   </a>

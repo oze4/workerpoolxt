@@ -22,28 +22,28 @@
 
 ## Synopsis
 
-- Allows you to retain access to underlying `*WorkerPool` object as if you imported `workerpool` directly
-- [Hello, world!](#hello-world)
-- [How we extend `workerpool`](#how-we-extend-workerpool)
-  - [Results](#results)
-    - Job results are captured so you can work with them later
-    - [How to handle errors?](#error-handling)
-  - [Timeouts](#timeouts)
-    - Required global/default timeout for all jobs
-    - Optional timeout on a per job basis
-    - **Job timeout overrides global/default timeout**
-    - [How do I know if a job timed out?](#error-handling)
-  - [Retry](#retry)
-    - `int` that defines N number of retries
-    - Can only supply retry on a per job basis
-  - [Options](#options)
-    - Options are optional
-    - Provide either [global/default options](#default-options) or [per job options](#per-job-options)
-    - Options are nothing more than `map[string]interface{}` so that you may supply anything you wish
-    - Job options override default options, **_we do NOT merge options_**
-  - Runtime duration
-    - Access a job's runtime duration via it's response
-    - e.g. `howLongItTook := someResponseFromSomeJob.RuntimeDuration() //-> time.Duration`
+  - Allows you to retain access to underlying `*WorkerPool` object as if you imported `workerpool` directly
+  - [Hello, world!](#hello-world)
+  - [How we extend `workerpool`](#how-we-extend-workerpool)
+    - [Results](#results)
+      - Job results are captured so you can work with them later
+      - [How to handle errors?](#error-handling)
+    - [Timeouts](#timeouts)
+      - Required global/default timeout for all jobs
+      - Optional timeout on a per job basis
+      - **Job timeout overrides global/default timeout**
+      - [How do I know if a job timed out?](#error-handling)
+    - [Retry](#retry)
+      - `int` that defines N number of retries
+      - Can only supply retry on a per job basis
+    - [Options](#options)
+      - Options are optional
+      - Provide either [global/default options](#default-options) or [per job options](#per-job-options)
+      - Options are nothing more than `map[string]interface{}` so that you may supply anything you wish
+      - Job options override default options, **_we do NOT merge options_**
+    - Runtime duration
+      - Access a job's runtime duration via it's response
+      - e.g. `howLongItTook := someResponseFromSomeJob.RuntimeDuration() //-> time.Duration`
 
 ---
 

@@ -6,8 +6,8 @@
   <a href="https://github.com/oze4/workerpoolxt/actions">
     <img title="Build" src="https://github.com/oze4/workerpoolxt/workflows/Build/badge.svg?branch=master" >
   </a>
-  <a href="https://codecov.io/gh/oze4/workerpoolxt">
-    <img title="codecov" src="https://codecov.io/gh/oze4/workerpoolxt/branch/master/graph/badge.svg" >
+  <a href="https://coveralls.io/github/oze4/workerpoolxt?branch=master">
+    <img title="coveralls" src="https://coveralls.io/repos/github/oze4/workerpoolxt/badge.svg?branch=master" >
   </a>
   <a href="https://goreportcard.com/report/github.com/oze4/workerpoolxt">
     <img title="Go Report Card" src="https://goreportcard.com/badge/github.com/oze4/workerpoolxt" >

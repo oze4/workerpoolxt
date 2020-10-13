@@ -3,9 +3,15 @@
 </p>
 
 <p align="center">
+<a href="https://github.com/oze4/workerpoolxt/actions?query=workflow%3ABuild">
 <img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/oze4/workerpoolxt/Build?color=29beb0&logo=github&style=flat-square">
-<img alt="Coveralls github" src="https://img.shields.io/coveralls/github/oze4/workerpoolxt?color=29beb0&label=coveralls&logo=coveralls">
+</a>
+<a href="https://coveralls.io/github/oze4/workerpoolxt">
+<img alt="Coveralls github" src="https://img.shields.io/coveralls/github/oze4/workerpoolxt?color=29beb0&label=coveralls&logo=coveralls&style=flat-square">
+</a>
+<a href="https://github.com/oze4/workerpoolxt/blob/master/LICENSE">
 <img alt="GitHub" src="https://img.shields.io/github/license/oze4/workerpoolxt?color=29beb0&style=flat-square">
+</a>
   <br />
 <img alt="Codacy grade" src="https://img.shields.io/codacy/grade/782dd1e1d8844b129f4de4df7984b537?color=29beb0&logo=codacy&style=flat-square">
   <a href="https://pkg.go.dev/github.com/oze4/workerpoolxt">

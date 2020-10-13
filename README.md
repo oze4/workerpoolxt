@@ -19,8 +19,9 @@
     <img title="PkgGoDev" src="https://pkg.go.dev/badge/github.com/oze4/workerpoolxt" >
   </a>
 </p>
-
-Worker pool library that extends [github.com/gammazero/workerpool](https://github.com/gammazero/workerpool).
+<p align="center">
+  Worker pool library that extends <a href="https://github.com/gammazero/workerpool">https://github.com/gammazero/workerpool</a>
+</p>
 
 ## Synopsis
 

@@ -13,7 +13,9 @@
 <img alt="GitHub" src="https://img.shields.io/github/license/oze4/workerpoolxt?color=29beb0&style=flat-square">
 </a>
   <br />
+  <a href="https://app.codacy.com/gh/oze4/workerpoolxt/dashboard">
 <img alt="Codacy grade" src="https://img.shields.io/codacy/grade/782dd1e1d8844b129f4de4df7984b537?color=29beb0&logo=codacy&style=flat-square">
+</a>
   <a href="https://pkg.go.dev/github.com/oze4/workerpoolxt">
     <img title="PkgGoDev" src="https://img.shields.io/badge/%20%20%20-reference-29beb0?style-for-the-badge&logo=go&labelColor=gray&logoColor=white&message=reference&style=flat-square" >
   </a>

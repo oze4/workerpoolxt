@@ -1,25 +1,23 @@
 <p align="center">
-  <h1 align="center">workerpoolxt</h1>	
+<h1 align="center">workerpoolxt<span>
+<a href="https://github.com/oze4/workerpoolxt/blob/master/LICENSE">
+<img align="center" alt="GitHub" src="https://img.shields.io/github/license/oze4/workerpoolxt?style=social">
+</a></span></h1>
 </p>
 
 <p align="center">
 <a href="https://github.com/oze4/workerpoolxt/actions?query=workflow%3ABuild">
-<img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/oze4/workerpoolxt/Build?color=29beb0&logo=github&style=flat-square">
+<img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/oze4/workerpoolxt/Build?logo=github&style=flat-square">
 </a>
 <a href="https://coveralls.io/github/oze4/workerpoolxt">
-<img alt="Coveralls github" src="https://img.shields.io/coveralls/github/oze4/workerpoolxt?color=29beb0&label=coveralls&logo=coveralls&style=flat-square">
-</a>
-<a href="https://github.com/oze4/workerpoolxt/blob/master/LICENSE">
-<img alt="GitHub" src="https://img.shields.io/github/license/oze4/workerpoolxt?color=29beb0&style=flat-square">
-</a>
+<img alt="Coveralls github" src="https://img.shields.io/coveralls/github/oze4/workerpoolxt?label=coveralls&logo=coveralls&style=flat-square">
   <br />
   <a href="https://app.codacy.com/gh/oze4/workerpoolxt/dashboard">
-<img alt="Codacy grade" src="https://img.shields.io/codacy/grade/782dd1e1d8844b129f4de4df7984b537?color=29beb0&logo=codacy&style=flat-square">
+<img alt="Codacy grade" src="https://img.shields.io/codacy/grade/782dd1e1d8844b129f4de4df7984b537?logo=codacy&style=flat-square">
 </a>
   <a href="https://pkg.go.dev/github.com/oze4/workerpoolxt">
     <img title="PkgGoDev" src="https://img.shields.io/badge/%20%20%20-reference-29beb0?style-for-the-badge&logo=go&labelColor=gray&logoColor=white&message=reference&style=flat-square" >
   </a>
-  <br />
     <a href="https://goreportcard.com/report/github.com/oze4/workerpoolxt">
     <img title="Go Report Card" src="https://goreportcard.com/badge/github.com/oze4/workerpoolxt?style=flat-square" >
   </a>

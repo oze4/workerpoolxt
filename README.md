@@ -9,14 +9,14 @@
   <a href='https://coveralls.io/github/oze4/workerpoolxt?branch=master'>
     <img src='https://coveralls.io/repos/github/oze4/workerpoolxt/badge.svg?branch=master' alt='Coverage Status' />
   </a>
+  <a href="https://pkg.go.dev/github.com/oze4/workerpoolxt">
+    <img title="PkgGoDev" src="https://pkg.go.dev/badge/github.com/oze4/workerpoolxt" >
+  </a>
   <a href="https://goreportcard.com/report/github.com/oze4/workerpoolxt">
     <img title="Go Report Card" src="https://goreportcard.com/badge/github.com/oze4/workerpoolxt" >
   </a>
   <a href="https://github.com/oze4/workerpoolxt/blob/master/LICENSE">
     <img title="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" >
-  </a>
-  <a href="https://pkg.go.dev/github.com/oze4/workerpoolxt">
-    <img title="PkgGoDev" src="https://pkg.go.dev/badge/github.com/oze4/workerpoolxt" >
   </a>
 </p>
 <p align="center">

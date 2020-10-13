@@ -278,7 +278,6 @@ func TestDefaultOptions(t *testing.T) {
 	varname := "myvar"
 	varvalue := "myval"
 	opts := map[string]interface{}{varname: varvalue}
-	fmt.Println(opts[varname])
 	wp := New(3, defaultTimeout)
 	wp.WithOptions(opts)
 	wp.SubmitXT(Job{

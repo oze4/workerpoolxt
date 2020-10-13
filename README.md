@@ -122,20 +122,24 @@ wp.SubmitXT(wpxt.Job{
 // Required to set global/default
 // timeout when calling `New(...)`
 myDefaultTimeout := time.Duration(time.Second*30)
+wp := wpxt.New(10, myDefaultTimeout)
+
 // Or supply per job - if a job has a timeout,
 // it overrides the default
 wp.SubmitXT(wpxt.Job{
     Name: "Job timeouts",
     // Set timeout field on job
-    Timeout: time.Duration(time.Millisecond*500),
-    Task: func(o wpxt.Options) wpxt.Response { /* ... */ },
+    Timeout: time.Duration(time.Millisecond*500), // <---
+    Task: func(o wpxt.Options) wpxt.Response { 
+        // ... 
+    },
 })
 ```
 
 ### Retry
 
+- Optional
 - Seamlessly retry failed jobs
-- Optional to provide a Retry int per job
 
 ```golang
 wp.SubmitXT(wpxt.Job{

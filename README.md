@@ -61,23 +61,23 @@ import (
 )
 
 func main() {
-  defaultTimeout := time.Duration(time.Second*10)
-  numWorkers := 10
+    defaultTimeout := time.Duration(time.Second*10)
+    numWorkers := 10
 
-  wp := wpxt.New(numWorkers, defaultTimeout)
+    wp := wpxt.New(numWorkers, defaultTimeout)
 
-  wp.SubmitXT(wpxt.Job{
-    Name: "My first job",
-    Task: func(o wpxt.Options) wpxt.Response {
-      return wpxt.Response{Data: "Hello, world!"}
-    },
-  })
+    wp.SubmitXT(wpxt.Job{
+        Name: "My first job",
+        Task: func(o wpxt.Options) wpxt.Response {
+            return wpxt.Response{Data: "Hello, world!"}
+        },
+    })
 
-  jobResults := wp.StopWaitXT()
+    jobResults := wp.StopWaitXT()
 
-  for _, jobresult := range jobResults {
-    fmt.Println(jobresult)
-  }
+    for _, jobresult := range jobResults {
+        fmt.Println(jobresult)
+    }
 }
 ```
 
@@ -90,8 +90,7 @@ func main() {
 results := wp.StopWaitXT() // -> []wpxt.Response
 
 for _, result := range results {
-  // If job failed, `result.Error != nil`
-  // ...
+    // If job failed, `result.Error != nil`
 }
 ```
 
@@ -103,19 +102,14 @@ for _, result := range results {
 ```golang
 // Just set the `Error` field on the `wpxt.Response` you return
 wp.SubmitXT(wpxt.Job{
-  Name: "How to handle errors",
-  Task: func(o wpxt.Options) wpxt.Response {
-    // Pretend we got an error doing something
-    if theError != nil {
-      return wpxt.Response{Error: theError}
-    }
-  }
+    Name: "How to handle errors",
+    Task: func(o wpxt.Options) wpxt.Response {
+        // Pretend we got an error doing something
+        if theError != nil {
+            return wpxt.Response{Error: theError}
+        }
+    },
 })
-
-results := wp.StopWaitXT()
-// Consider `rez` in the following example:
-//> for _, rez := range results { ... }
-// Check for job error like: `rez.Error != nil`
 ```
 
 ### Job Timeouts
@@ -127,14 +121,11 @@ myDefaultTimeout := time.Duration(time.Second*30)
 // Or supply per job - if a job has a timeout,
 // it overrides the default
 wp.SubmitXT(wpxt.Job{
-  Name: "Job timeouts",
-  // Set timeout field on job
-  Timeout: time.Duration(time.Millisecond*500),
-  Task: func(o wpxt.Options) wpxt.Response { /* ... */ }
+    Name: "Job timeouts",
+    // Set timeout field on job
+    Timeout: time.Duration(time.Millisecond*500),
+    Task: func(o wpxt.Options) wpxt.Response { /* ... */ },
 })
-
-results := wp.StopWaitXT()
-// ...
 ```
 
 ### Retry
@@ -154,9 +145,6 @@ wp.SubmitXT(wpxt.Job{
     return wpxt.Response{Error: errors.New("some_err")}
   },
 })
-
-results := wp.StopWaitXT()
-// ...
 ```
 
 ### Options

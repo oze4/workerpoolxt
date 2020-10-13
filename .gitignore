@@ -72,3 +72,4 @@ Temporary Items
 coverage.out
 **.git
 go.mod.old
+*.lcov

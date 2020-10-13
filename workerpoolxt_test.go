@@ -22,8 +22,6 @@ var (
 )
 
 func TestSubmitWithSubmitXT_UsingStopWaitXT_Special(t *testing.T) {
-	t.Parallel()
-
 	var totalResults uint64
 	wp := New(10, defaultTimeout)
 	expectedTotalResults := 2
@@ -46,8 +44,6 @@ func TestSubmitWithSubmitXT_UsingStopWaitXT_Special(t *testing.T) {
 }
 
 func TestSubmitWithSubmitXT_UsingStopWait_Special(t *testing.T) {
-	t.Parallel()
-
 	var totalResults uint64
 	wp := New(10, defaultTimeout)
 	expectedTotalResults := 2
@@ -70,8 +66,6 @@ func TestSubmitWithSubmitXT_UsingStopWait_Special(t *testing.T) {
 }
 
 func TestOverflow_Special(t *testing.T) {
-	t.Parallel()
-
 	wp := New(2, defaultTimeout)
 	releaseChan := make(chan struct{})
 
@@ -104,7 +98,6 @@ func TestOverflow_Special(t *testing.T) {
 }
 
 func TestStopRace(t *testing.T) {
-	t.Parallel()
 	wp := New(20, defaultTimeout)
 	workRelChan := make(chan struct{})
 
@@ -193,7 +186,6 @@ func TestWaitingQueueSizeRace(t *testing.T) {
 }
 
 func TestSubmitXT_HowToHandleErrors(t *testing.T) {
-	t.Parallel()
 	wp := New(3, time.Duration(time.Second*5))
 	wp.SubmitXT(Job{ // Uses default timeout
 		Name: "Job 1 will pass",
@@ -231,7 +223,6 @@ func TestSubmitXT_HowToHandleErrors(t *testing.T) {
 }
 
 func TestResultCountEqualsJobCount(t *testing.T) {
-	t.Parallel()
 	numJobs := 500
 	numworkers := 10
 	wp := New(numworkers, defaultTimeout)

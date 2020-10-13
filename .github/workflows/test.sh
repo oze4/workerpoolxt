@@ -13,10 +13,10 @@ for d in $(go list ./... | grep -v vendor); do
     go test -v -race -coverprofile=$profile -covermode=atomic $d
     printf "\n%s\n" "[STARTING] : '^Test.*_Special$' : this may take a while"
     # Includes any test ending in `_Special`
-    go test -race -run ^Test.*_Special$ -count=$special_count $d
+    #go test -race -run ^Test.*_Special$ -count=$special_count $d
     # Cleanup
     if [ -f $profile ]; then
         cat $profile >>$coverage
-        rm $profile
+    #    rm $profile
     fi
 done

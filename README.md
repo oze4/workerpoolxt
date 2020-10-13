@@ -31,7 +31,7 @@
   - [Results](#results)
     - Job results are captured so you can work with them later
     - [How to handle errors?](#error-handling)
-  - [Job timeouts](#job-timeouts)
+  - [Timeouts](#timeouts)
     - Required global/default timeout for all jobs
     - Optional timeout on a per job basis
     - **Job timeout overrides global/default timeout**
@@ -116,7 +116,7 @@ wp.SubmitXT(wpxt.Job{
 })
 ```
 
-### Job Timeouts
+### Timeouts
 
 ```golang
 // Required to set global/default

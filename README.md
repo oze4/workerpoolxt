@@ -26,7 +26,7 @@
 ## Synopsis
 
 - Allows you to retain access to underlying `*WorkerPool` object as if you imported `workerpool` directly
-- [Full, basic example](#basic-example)
+- [Hello, world!](#hello-world)
 - [How we extend `workerpool`](#how-we-extend-workerpool)
   - [Results](#results)
     - Job results are captured so you can work with them later
@@ -50,7 +50,9 @@
 
 ---
 
-## Basic Example
+## Hello World
+
+- Obligatory "*as simple as it gets*" example
 
 ```golang
 package main

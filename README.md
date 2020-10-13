@@ -22,145 +22,155 @@
 
 Worker pool library that extends [github.com/gammazero/workerpool](https://github.com/gammazero/workerpool).
 
-Allows you to retain access to underlying `*WorkerPool` object as if you imported `workerpool` directly
+## Synopsis
 
+- Allows you to retain access to underlying `*WorkerPool` object as if you imported `workerpool` directly
+- [Full, basic example](#basic-example)
+- [How we extend `workerpool`](#how-we-extend-workerpool)
+  - [Results](#results)
+    - Job results are captured so you can work with them later
+    - [How to handle errors?](#error-handling)
+  - [Job timeouts](#job-timeouts)
+    - Required global/default timeout for all jobs
+    - Optional timeout on a per job basis
+    - **Job timeout overrides global/default timeout**
+    - [How do I know if a job timed out?](#error-handling)
+  - [Retry](#retry)
+    - `int` that defines N number of retries
+    - Can only supply retry on a per job basis
+  - [Options](#options)
+    - Options are optional
+    - Provide either [global/default options](#default-options) or [per job options](#per-job-options)
+    - Options are nothing more than `map[string]interface{}` so that you may supply anything you wish
+    - Job options override default options, **_we do NOT merge options_**
+  - Runtime duration
+    - Access a job's runtime duration via it's response
+    - e.g. `howLongItTook := someResponseFromSomeJob.RuntimeDuration() //-> time.Duration`
 
-### How we extend `workerpool`
+---
 
-- [Get results from each job](#basic-example)
-  - We collect job results so you can work with them later
-  - [How to handle errors](#how-to-handle-errors)
-  - [How do I know if a job timed out](#how-to-handle-errors)
-- [Pass any variable/data/etc into each job via Options](#options)
-  - Pass data from outside of the job without having to worry about closures or generators
-  - Set [default options on the workerpool](#supply-default-options) or [on a per job basis](#supply-options-per-job)
-  - **If a job has options set, it overrides the defaults \**we do not merge options***\*
-- Job runtime statistics
-  - Runtime duration stats are baked in
-  - Access via `somejobresult.RuntimeDuration() //-> time.Duration`
-- [Job timeouts](#basic-example)
-  - Fine tune timeouts on a per job basis
-
-### Basic example
+## Basic Example
 
 ```golang
 package main
 
 import (
-	"fmt"
-	"time"
-	wpxt "github.com/oze4/workerpoolxt"
+  "fmt"
+  "time"
+  wpxt "github.com/oze4/workerpoolxt"
 )
 
 func main() {
-	wp := wpxt.New(10, time.Duration(time.Second*10))
+  defaultTimeout := time.Duration(time.Second*10)
+  numWorkers := 10
 
-	wp.SubmitXT(Job{ // For demo purposes, this job will timeout
-		Name:    "My first job",
-		Timeout: time.Duration(time.Second * 1),
-		//                     ^^^^^^^^^^^^^^^
-		Task: func(o wpxt.Options) wpxt.Response {
-			time.Sleep(time.Second * 2)
-			//         ^^^^^^^^^^^^^^^
-			return wpxt.Response{Data: "Hello"}
-		},
-	})
+  wp := wpxt.New(numWorkers, defaultTimeout)
 
-	// Submit as many jobs as you would like
+  wp.SubmitXT(wpxt.Job{
+    Name: "My first job",
+    Task: func(o wpxt.Options) wpxt.Response {
+      return wpxt.Response{Data: "Hello, world!"}
+    },
+  })
 
-	results := wp.StopWaitXT()
+  jobResults := wp.StopWaitXT()
 
-	for _, r := range results {
-		fmt.Printf("%s took %fms\n", r.Name(), r.RuntimeDuration() * time.Millisecond)
-	}
+  for _, jobresult := range jobResults {
+    fmt.Println(jobresult)
+  }
 }
 ```
 
-### How to handle errors
+## How we extend `workerpool`
 
-How do I know if a job timed out? How do I handle an error in my job?
+### Results
 
 ```golang
-import (
-	wpxt "github.com/oze4/workerpoolxt"
-	// ...
-)
+// ... jobs submitted here
+results := wp.StopWaitXT() // -> []wpxt.Response
 
-wp := wpxt.New(3, time.Duration(time.Second*10))
+for _, result := range results {
+  // If job failed, `result.Error != nil`
+  // ...
+}
+```
 
-/**
- * Uses default timeout
- */
-wp.SubmitXT(wpxt.Job{ 
-	Name: "Job 1 will pass",
-	Task: func(o wpxt.Options) wpxt.Response {
-		return wpxt.Response{Data: "yay"}
-	},
-})
+### Error Handling
 
-/**
- * Uses custom timeout. 
- * This job is configured to timeout on purpose
- */
-wp.SubmitXT(wpxt.Job{ 
-	Name:    "Job 2 will timeout",
-	Timeout: time.Duration(time.Millisecond * 1),
-	Task: func(o wpxt.Options) wpxt.Response {
-		// Simulate long running task
-		time.Sleep(time.Second * 20) 
-		return wpxt.Response{Data: "timedout"}
-	},
-})
+- What if I encounter an error in one of my jobs?
+- How can I handle or check for it?
 
-/**
- * Or if you encounter an error within the code in your job
- */
-wp.SubmitXT(wpxt.Job{ 
-	Name: "Job 3 will encounter an error",
-	Task: func(o wpxt.Options) wpxt.Response {
-		err := fmt.Errorf("ErrorPretendException : something failed")
-		if err != nil {
-			return wpxt.Response{Error: err}
-		}
-		return wpxt.Response{Data: "error"}
-	},
+```golang
+// Just set the `Error` field on the `wpxt.Response` you return
+wp.SubmitXT(wpxt.Job{
+  Name: "How to handle errors",
+  Task: func(o wpxt.Options) wpxt.Response {
+    // Pretend we got an error doing something
+    if theError != nil {
+      return wpxt.Response{Error: theError}
+    }
+  }
 })
 
 results := wp.StopWaitXT()
+// Consider `rez` in the following example:
+//> for _, rez := range results { ... }
+// Check for job error like: `rez.Error != nil`
+```
 
-for _, r := range results {
-	if r.Error != nil {
-		fmt.Println(r.Name(), "has failed with error :", r.Error.Error())
-	} else {
-		fmt.Println(r.Name(), "has passed successfully")
-	}
-}
+### Job Timeouts
 
-//->
-// Job 3 will encounter an error has failed with error : ErrorPretendException : something failed
-// Job 1 will pass has passed successfully
-// Job 2 will timeout has failed with error : context deadline exceeded
+```golang
+// Required to set global/default
+// timeout when calling `New(...)`
+myDefaultTimeout := time.Duration(time.Second*30)
+// Or supply per job - if a job has a timeout,
+// it overrides the default
+wp.SubmitXT(wpxt.Job{
+  Name: "Job timeouts",
+  // Set timeout field on job
+  Timeout: time.Duration(time.Millisecond*500),
+  Task: func(o wpxt.Options) wpxt.Response { /* ... */ }
+})
+
+results := wp.StopWaitXT()
+// ...
+```
+
+### Retry
+
+- Seamlessly retry failed jobs
+- Optional to provide a Retry int per job
+
+```golang
+wp.SubmitXT(wpxt.Job{
+  // This job will retry 5 times if failed,
+  // as long as we have not exceeded our job timeout
+  Retry: 5,
+  Name: "I will retry 5 times",
+  // Set timeout field on job
+  Timeout: time.Duration(time.Millisecond*500),
+  Task: func(o wpxt.Options) wpxt.Response {
+    return wpxt.Response{Error: errors.New("some_err")}
+  },
+})
+
+results := wp.StopWaitXT()
+// ...
 ```
 
 ### Options
 
- - Providing options is optional
- - Options are nothing more than `map[string]interface{}` so that you may supply anything you wish. This also simplifies accessing options within a job.
- - You can supply options along with the workerpool, or on a per job basis. 
- - **If a job has options set, it overrides the defaults *we DO NOT merge options***
+- Help make jobs flexible
 
-#### Supply default options
+#### Default Options
 
 ```golang
-import (
-    wpxt "github.com/oze4/workerpoolxt"
-    // ...
-)
-
-wp := wpxt.New(10, time.Duration(time.Second*10))
 myopts := map[string]interface{}{
     "myclient": &http.Client{},
 }
+
+wp := wpxt.New(10, time.Duration(time.Second*10))
 wp.WithOptions(myopts)
 
 wp.SubmitXT(wpxt.Job{
@@ -168,20 +178,13 @@ wp.SubmitXT(wpxt.Job{
     Task: func(o wpxt.Options) wpxt.Response {
         // access options here
         client := o["myclient"]
-    }, 
+    },
 })
 ```
 
-#### Supply options per job
+#### Per Job Options
 
 ```golang
-import (
-    wpxt "github.com/oze4/workerpoolxt"
-    // ...
-)
-
-wp := wpxt.New(10, time.Duration(time.Second*10))
-
 myhttpclient := &http.Client{}
 myk8sclient := kubernetes.Clientset{}
 
@@ -189,13 +192,13 @@ myk8sclient := kubernetes.Clientset{}
 wp.SubmitXT(wpxt.Job{
     Name: "This Job Only Needs an HTTP Client",
     Options: map[string]interface{}{
-        "http": myhttpclient, 
+        "http": myhttpclient,
     },
     Task: func(o wpxt.Options) wpxt.Response {
         // access options here
-	httpclient := o["http"]
-	// ... do work with `httpclient`
-    }, 
+        httpclient := o["http"]
+        // ... do work with `httpclient`
+    },
 })
 
 // This Job Only Needs Kubernetes Clientset
@@ -205,9 +208,9 @@ wp.SubmitXT(wpxt.Job{
         "kube": myk8sclient,
     },
     Task: func(o wpxt.Options) wpxt.Response {
-        // access options here
-	kubernetesclient := o["kube"]
-	// ... do work with `kubernetesclient`
-    }, 
+      // access options here
+      kubernetesclient := o["kube"]
+      // ... do work with `kubernetesclient`
+    },
 })
 ```

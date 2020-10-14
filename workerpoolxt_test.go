@@ -1,6 +1,7 @@
 package workerpoolxt
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -19,11 +20,42 @@ import (
 
 var (
 	defaultTimeout = time.Duration(time.Second * 10)
+	freshCtx       = func() context.Context { return context.Background() }
+	defaultWorkers = 10
 )
+
+func TestBasics(t *testing.T) {
+	wp := New(freshCtx(), defaultWorkers)
+	wp.SubmitXT(Job{
+		Name: "Basics",
+		Task: func(o Options) Response {
+			return Response{Data: true}
+		},
+	})
+	wp.SubmitXT(Job{
+		Name: "Basics",
+		Task: func(o Options) Response {
+			return Response{Data: true}
+		},
+	})
+	wp.SubmitXT(Job{
+		Name: "Basics",
+		Task: func(o Options) Response {
+			return Response{Error: errors.New("err")}
+		},
+	})
+	results := wp.StopWaitXT()
+	for _, r := range results {
+		fmt.Println(r)
+	}
+	if len(results) != 3 {
+		t.Fatalf("Expected 3 results got : %d", len(results))
+	}
+}
 
 func TestSubmitWithSubmitXT_UsingStopWaitXT_Special(t *testing.T) {
 	var totalResults uint64
-	wp := New(10, defaultTimeout)
+	wp := New(freshCtx(), defaultWorkers)
 	expectedTotalResults := 2
 	wp.Submit(func() {
 		time.Sleep(time.Millisecond * 2)
@@ -45,7 +77,7 @@ func TestSubmitWithSubmitXT_UsingStopWaitXT_Special(t *testing.T) {
 
 func TestSubmitWithSubmitXT_UsingStopWait_Special(t *testing.T) {
 	var totalResults uint64
-	wp := New(10, defaultTimeout)
+	wp := New(freshCtx(), defaultWorkers)
 	expectedTotalResults := 2
 	wp.Submit(func() {
 		time.Sleep(time.Millisecond * 2)
@@ -66,7 +98,8 @@ func TestSubmitWithSubmitXT_UsingStopWait_Special(t *testing.T) {
 }
 
 func TestOverflow_Special(t *testing.T) {
-	wp := New(2, defaultTimeout)
+	thisTestHasToHaveTwoWorkers := 2
+	wp := New(freshCtx(), thisTestHasToHaveTwoWorkers)
 	releaseChan := make(chan struct{})
 
 	// Start workers, and have them all wait on a channel before completing.
@@ -98,14 +131,15 @@ func TestOverflow_Special(t *testing.T) {
 }
 
 func TestStopRace(t *testing.T) {
-	wp := New(20, defaultTimeout)
+	max := 20
+	wp := New(freshCtx(), max)
 	workRelChan := make(chan struct{})
 
 	var started sync.WaitGroup
-	started.Add(20)
+	started.Add(max)
 
 	// Start workers, and have them all wait on a channel before completing.
-	for i := 0; i < 20; i++ {
+	for i := 0; i < max; i++ {
 		wp.Submit(func() {
 			started.Done()
 			<-workRelChan
@@ -149,7 +183,7 @@ func TestWaitingQueueSizeRace(t *testing.T) {
 		tasks      = 20
 		workers    = 5
 	)
-	wp := New(workers, defaultTimeout)
+	wp := New(freshCtx(), workers)
 	maxChan := make(chan int)
 	for g := 0; g < goroutines; g++ {
 		go func() {
@@ -186,19 +220,24 @@ func TestWaitingQueueSizeRace(t *testing.T) {
 }
 
 func TestSubmitXT_HowToHandleErrors(t *testing.T) {
-	wp := New(3, time.Duration(time.Second*5))
+	wp := New(freshCtx(), defaultWorkers)
+
 	wp.SubmitXT(Job{ // Uses default timeout
 		Name: "Job 1 will pass",
 		Task: func(o Options) Response {
 			return Response{Data: "yay"}
 		}})
+
+	perJobContext, cncl := context.WithTimeout(freshCtx(), time.Duration(time.Millisecond*1))
+	defer cncl()
 	wp.SubmitXT(Job{ // Uses custom timeout
 		Name:    "Job 2 will timeout",
-		Timeout: time.Duration(time.Millisecond * 1),
+		Context: perJobContext,
 		Task: func(o Options) Response {
 			time.Sleep(time.Second * 20) // Simulate long running task
 			return Response{Data: "uhoh"}
 		}})
+
 	wp.SubmitXT(Job{ // Or if you encounter an error within the code in your job
 		Name: "Job 3 will encounter an error",
 		Task: func(o Options) Response {
@@ -208,6 +247,7 @@ func TestSubmitXT_HowToHandleErrors(t *testing.T) {
 			}
 			return Response{Data: "uhoh"}
 		}})
+
 	results := wp.StopWaitXT()
 	failed, succeeded := 0, 0
 	for _, r := range results {
@@ -224,8 +264,7 @@ func TestSubmitXT_HowToHandleErrors(t *testing.T) {
 
 func TestResultCountEqualsJobCount(t *testing.T) {
 	numJobs := 500
-	numworkers := 10
-	wp := New(numworkers, defaultTimeout)
+	wp := New(freshCtx(), defaultWorkers)
 	for i := 0; i < numJobs; i++ {
 		ii := i
 		wp.SubmitXT(Job{
@@ -241,7 +280,7 @@ func TestResultCountEqualsJobCount(t *testing.T) {
 }
 
 func TestRuntimeDuration(t *testing.T) {
-	wp := New(3, defaultTimeout)
+	wp := New(freshCtx(), defaultWorkers)
 	wp.SubmitXT(Job{
 		Name: "test",
 		Task: func(o Options) Response {
@@ -259,7 +298,7 @@ func TestRuntimeDuration(t *testing.T) {
 
 func TestName(t *testing.T) {
 	thename := "test99"
-	wp := New(3, defaultTimeout)
+	wp := New(freshCtx(), defaultWorkers)
 	wp.SubmitXT(Job{
 		Name: thename,
 		Task: func(o Options) Response {
@@ -275,10 +314,9 @@ func TestName(t *testing.T) {
 }
 
 func TestDefaultOptions(t *testing.T) {
-	varname := "myvar"
-	varvalue := "myval"
+	varname, varvalue := "myvar", "myval"
 	opts := map[string]interface{}{varname: varvalue}
-	wp := New(3, defaultTimeout)
+	wp := New(freshCtx(), defaultWorkers)
 	wp.WithOptions(opts)
 	wp.SubmitXT(Job{
 		Name: "testing default options",
@@ -287,7 +325,6 @@ func TestDefaultOptions(t *testing.T) {
 			return Response{Data: o[varname]}
 		},
 	})
-
 	res := wp.StopWaitXT()
 	first := res[0]
 	data := first.Data
@@ -297,7 +334,7 @@ func TestDefaultOptions(t *testing.T) {
 }
 
 func TestPerJobOptions(t *testing.T) {
-	wp := New(3, defaultTimeout)
+	wp := New(freshCtx(), defaultWorkers)
 	wp.SubmitXT(Job{
 		Name: "job 1",
 		Task: func(o Options) Response {
@@ -337,7 +374,7 @@ func TestPerJobOptions(t *testing.T) {
 }
 
 func TestPerJobOptionsOverrideDefaultOptions(t *testing.T) {
-	wp := New(3, defaultTimeout)
+	wp := New(freshCtx(), defaultWorkers)
 	// set default options so we can verify they were overwritten by per job options
 	opts := map[string]interface{}{"default": "value"}
 	wp.WithOptions(opts)
@@ -383,7 +420,7 @@ func TestPerJobOptionsOverrideDefaultOptions(t *testing.T) {
  * This is a "cheap" test.  More thorough tests need to be performed on wp.stop(true)
  */
 func TestStopNow(t *testing.T) {
-	wp := New(3, defaultTimeout)
+	wp := New(freshCtx(), defaultWorkers)
 	wp.SubmitXT(Job{
 		Name: "job 1",
 		Task: func(o Options) Response {
@@ -395,7 +432,7 @@ func TestStopNow(t *testing.T) {
 }
 
 func TestRetry(t *testing.T) {
-	wp := New(3, defaultTimeout)
+	wp := New(freshCtx(), defaultWorkers)
 	expectedError := errors.New("simulating error")
 	expectedName := "backoff_test"
 	expectedResultsLen := 2

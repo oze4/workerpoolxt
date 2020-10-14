@@ -35,10 +35,8 @@
       - Job results are captured so you can work with them later
       - [How to handle errors?](#error-handling)
     - [Timeouts](#timeouts)
-      - Required global/default timeout for all jobs
-      - Optional timeout on a per job basis
-      - **Job timeout overrides global/default timeout**
-      - [How do I know if a job timed out?](#error-handling)
+      - **Use context for timeouts now**
+    - [Context](#context)
     - [Retry](#retry)
       - `int` that defines N number of retries
       - Can only supply retry on a per job basis
@@ -61,16 +59,16 @@
 package main
 
 import (
+    "context"
     "fmt"
-    "time"
     wpxt "github.com/oze4/workerpoolxt"
 )
 
 func main() {
-    defaultTimeout := time.Duration(time.Second*10)
+    ctx := context.Background()
     numWorkers := 10
 
-    wp := wpxt.New(numWorkers, defaultTimeout)
+    wp := wpxt.New(ctx, numWorkers)
 
     wp.SubmitXT(wpxt.Job{
         Name: "My first job",
@@ -137,24 +135,10 @@ if someResponseFromSomeJob.Error != nil {
 }
 ```
 
-### Timeouts
+### Context
 
 ```golang
-// Required to set global/default
-// timeout when calling `New(...)`
-myDefaultTimeout := time.Duration(time.Second*30)
-wp := wpxt.New(10, myDefaultTimeout)
-
-// Or supply per job - if a job has a timeout,
-// it overrides the default
-wp.SubmitXT(wpxt.Job{
-    Name: "Job timeouts",
-    // Set timeout field on job
-    Timeout: time.Duration(time.Millisecond*500), // <---
-    Task: func(o wpxt.Options) wpxt.Response { 
-        // ... 
-    },
-})
+// TODO
 ```
 
 ### Retry
@@ -167,11 +151,12 @@ wp.SubmitXT(wpxt.Job{
     // This job is configured to fail immediately, 
     // therefore it will retry 5 times
     // (as long as we have not exceeded our job timeout)
+    timeoutctx, _ := context.WithTimeout(context.Background(), time.Duration(time.Millisecond*500))
     Retry: 5,
     // ^^^^^^
     Name: "I will retry 5 times",
     // Set timeout field on job
-    Timeout: time.Duration(time.Millisecond*500),
+    Context: timeoutctx,
     Task: func(o wpxt.Options) wpxt.Response {
         return wpxt.Response{Error: errors.New("some_err")}
     },
@@ -189,7 +174,7 @@ myopts := map[string]interface{}{
     "myclient": &http.Client{},
 }
 
-wp := wpxt.New(10, time.Duration(time.Second*10))
+wp := wpxt.New(context.Background(), 10)
 wp.WithOptions(myopts)
 
 wp.SubmitXT(wpxt.Job{

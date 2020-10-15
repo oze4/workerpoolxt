@@ -15,9 +15,11 @@ func New(ctx context.Context, maxWorkers int) *WorkerPoolXT {
 		WorkerPool:    workerpool.New(maxWorkers),
 		context:       ctx,
 		responsesChan: make(chan Response),
-		killswitch:    make(chan bool),
+		killswitch:    make(chan struct{}),
 	}
+
 	go w.processResponses()
+	
 	return w
 }
 
@@ -25,7 +27,7 @@ func New(ctx context.Context, maxWorkers int) *WorkerPoolXT {
 type WorkerPoolXT struct {
 	*workerpool.WorkerPool
 	context       context.Context
-	killswitch    chan bool
+	killswitch    chan struct{}
 	options       Options
 	once          sync.Once
 	responsesChan chan Response
@@ -51,6 +53,7 @@ func (wp *WorkerPoolXT) WithOptions(o Options) {
 // do gets the appropriate payload and does it
 func (wp *WorkerPoolXT) do(job Job) {
 	payload := wp.newPayload(job)
+
 	todo := func() {
 		payload()
 	}
@@ -58,12 +61,9 @@ func (wp *WorkerPoolXT) do(job Job) {
 	// If the job is using Retry
 	if job.backoff != nil {
 		todo = func() {
-			jobErr := backoff.Retry(payload, job.backoff)
-			if jobErr != nil {
-				wp.responsesChan <- Response{
-					name:  job.Name,
-					Error: jobErr,
-				}
+			err := backoff.Retry(payload, job.backoff)
+			if err != nil {
+				wp.responsesChan <- newResponseError(err, job.Name, job.startTime)
 			}
 		}
 	}
@@ -75,14 +75,12 @@ func (wp *WorkerPoolXT) do(job Job) {
 // getBackoff determines if a job is using Retry
 // TODO I would love a 'native' way to retry jobs, though!
 func (wp *WorkerPoolXT) getBackoff(job Job) backoff.BackOff {
-	var rbo backoff.BackOff
+	var b backoff.BackOff
 	if job.Retry > 0 {
-		rbo = backoff.WithMaxRetries(
-			backoff.NewExponentialBackOff(),
-			uint64(job.Retry),
-		)
+		x, r := backoff.NewExponentialBackOff(), uint64(job.Retry)
+		b = backoff.WithMaxRetries(x, r)
 	}
-	return rbo
+	return b
 }
 
 // getContext decides which context to use : default or job
@@ -111,6 +109,7 @@ func (wp *WorkerPoolXT) getResult(job Job) {
 		switch job.context.Err() {
 		case context.DeadlineExceeded:
 			wp.responsesChan <- newResponseError(context.DeadlineExceeded, job.Name, job.startTime)
+
 		case context.Canceled:
 			if !job.contextCancelledInternally {
 				wp.responsesChan <- newResponseError(context.Canceled, job.Name, job.startTime)
@@ -125,18 +124,20 @@ func (wp *WorkerPoolXT) newPayload(job Job) func() error {
 
 	return func() error {
 		o := wp.getOptions(job)
-		f := job.Task(o)
+		r := job.Task(o)
+
 		// If Job not using Retry, don't want to return an error
-		if f.Error != nil && job.backoff != nil {
-			return f.Error
+		if r.Error != nil && job.backoff != nil {
+			return r.Error
 		}
 
-		f.runtimeDuration = time.Since(job.startTime)
-		f.name = job.Name
+		// No point in setting these prior to error check
+		r.runtimeDuration = time.Since(job.startTime)
+		r.name = job.Name
 
 		// Only send a response if our contex is good
 		if job.context.Err() == nil {
-			wp.responsesChan <- f
+			wp.responsesChan <- r
 		}
 
 		// We can return nil whether Job is using Retry or not
@@ -168,7 +169,7 @@ func (wp *WorkerPoolXT) stop(now bool) {
 			wp.StopWait()
 		}
 		close(wp.responsesChan)
-		wp.killswitch <- true
+		wp.killswitch <- struct{}{}
 	})
 }
 
@@ -220,12 +221,12 @@ func (r *Response) Name() string {
 
 // request holds misc data for each job
 type request struct {
-	context                    context.Context
-	cancelFunc                 context.CancelFunc
 	backoff                    backoff.BackOff
+	cancelFunc                 context.CancelFunc
+	context                    context.Context
+	contextCancelledInternally bool
 	job                        Job
 	startTime                  time.Time
-	contextCancelledInternally bool
 }
 
 // successCancel cancels our context and sets isSuccess flag

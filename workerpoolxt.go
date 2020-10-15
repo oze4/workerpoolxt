@@ -54,9 +54,8 @@ func (wp *WorkerPoolXT) WithOptions(o Options) {
 
 // getBackoff determines if a job is using Retry - if it is
 // we configure the backoff
-//
-// TODO... I would love a 'native' way to retry jobs, though!
-//
+// TODO
+// I would love a 'native' way to retry jobs, though!
 func (wp *WorkerPoolXT) getBackoff(job Job) backoff.BackOff {
 	var rbo backoff.BackOff
 	if job.Retry > 0 {
@@ -85,6 +84,70 @@ func (wp *WorkerPoolXT) getContext(job Job) (context.Context, context.CancelFunc
 		return context.WithCancel(job.Context)
 	}
 	return context.WithCancel(wp.context)
+}
+
+func (wp *WorkerPoolXT) getJobResults(jmd *jobMetaData) {
+	select {
+	case <-jmd.context.Done():
+		switch jmd.context.Err() {
+		case context.DeadlineExceeded:
+			// If our timeout has passed, return an error object,
+			// disregarding any response from job which timed out.
+			// ** See `./doc.go`, section `Response Channel` for more info **
+			wp.responsesChan <- Response{
+				Error:           context.DeadlineExceeded,
+				name:            jmd.job.Name,
+				runtimeDuration: time.Since(jmd.startTime),
+			}
+		case context.Canceled:
+			// I think we need a better way of doing this
+			// TODO
+			// Goes along with #7
+			if !jmd.isSuccess {
+				wp.responsesChan <- Response{
+					Error:           context.Canceled,
+					name:            jmd.job.Name,
+					runtimeDuration: time.Since(jmd.startTime),
+				}
+			}
+		}
+	}
+}
+
+// newJobTask returns a `func() error` in order to satisfy backoff's needs
+// TODO
+// Move these comments to doc.go
+func (wp *WorkerPoolXT) newJobTask(m *jobMetaData) func() error {
+	return func() error {
+		o := wp.getOptions(m.job)
+		f := m.job.Task(o)
+
+		// We only want to return an error if the job is using Retry
+		// because we are using `backoff`. For the retry to work
+		// `backoff` has to know the job failed, this is how we tell it.
+		// If the job isn't using Retry/backoff, returning an error
+		// will cause problems.
+		if f.Error != nil && m.backoff != nil {
+			return f.Error
+		}
+
+		f.runtimeDuration = time.Since(m.startTime)
+		f.name = m.job.Name
+
+		// This check is important as it keeps from sending
+		// duplicate responses on our responses chan
+		// ** See `./doc.go`, section `Response Channel`
+		// for more info **
+		if m.context.Err() == nil {
+			wp.responsesChan <- f
+		}
+
+		// This needs to be here in case the job is using Retry
+		// If the job is NOT using Retry, it is OK to return nil
+		// here. It will not cause issues like returning an error
+		// would.
+		return nil
+	}
 }
 
 // processResponses listens for anything on
@@ -116,42 +179,10 @@ func (wp *WorkerPoolXT) stop(now bool) {
 	})
 }
 
-func (wp *WorkerPoolXT) newJobTask(c context.Context, d context.CancelFunc, j Job, t time.Time, b backoff.BackOff) func() error {
-	return func() error {
-		o := wp.getOptions(j)
-		f := j.Task(o)
-
-		// We only want to return an error if the job is using Retry
-		// because we are using `backoff`. For the retry to work
-		// `backoff` has to know the job failed, this is how we tell it.
-		// If the job isn't using Retry/backoff, returning an error
-		// will cause problems.
-		if f.Error != nil && b != nil {
-			return f.Error
-		}
-
-		f.runtimeDuration = time.Since(t)
-		f.name = j.Name
-
-		// This check is important as it keeps from sending
-		// duplicate responses on our responses chan
-		// ** See `./doc.go`, section `Response Channel`
-		// for more info **
-		if c.Err() == nil {
-			wp.responsesChan <- f
-		}
-
-		// This needs to be here in case the job is using Retry
-		// If the job is NOT using Retry, it is OK to return nil
-		// here. It will not cause issues like returning an error
-		// would.
-		return nil
-	}
-}
-
 // work should be ran on it's own goroutine. Sorts out job metadata and options and runs user provided Job.Task
-func (wp *WorkerPoolXT) work(ctx context.Context, done context.CancelFunc, j Job, ts time.Time, bo backoff.BackOff) {
-	jobtask := wp.newJobTask(ctx, done, j, ts, bo)
+func (wp *WorkerPoolXT) work(m *jobMetaData) {
+	m.backoff = wp.getBackoff(m.job)
+	jobtask := wp.newJobTask(m)
 
 	// Set the default "todo" func
 	todo := func() {
@@ -163,12 +194,14 @@ func (wp *WorkerPoolXT) work(ctx context.Context, done context.CancelFunc, j Job
 	// differently. We can't just call what we are given.
 	// We set our  "todo" func so that it handles retries
 	// accordingly.
-	if bo != nil {
+	// TODO
+	// Move this comment to doc.go
+	if m.backoff != nil {
 		todo = func() {
-			jobErr := backoff.Retry(jobtask, bo)
+			jobErr := backoff.Retry(jobtask, m.backoff)
 			if jobErr != nil {
 				wp.responsesChan <- Response{
-					name:  j.Name,
+					name:  m.job.Name,
 					Error: jobErr,
 				}
 			}
@@ -177,8 +210,11 @@ func (wp *WorkerPoolXT) work(ctx context.Context, done context.CancelFunc, j Job
 
 	// Call whatever "it" is we need to do
 	todo()
-	// Cancel our context
-	done()
+	// Cancel our context in success
+	// Most likely need a better way to do this
+	// TODO
+	// Goes with #7
+	m.successfullyCancel()
 }
 
 // wrap generates the func that we pass to Submit.
@@ -188,25 +224,15 @@ func (wp *WorkerPoolXT) wrap(job Job) func() {
 	// This is the func() that ultimately gets passed to `workerpool.Submit(f)`
 	return func() {
 		start := time.Now()
-		retryBackoff := wp.getBackoff(job)
-
-		// Wrap the func before passing to workerpool.Submit
-		go wp.work(jobctx, jobdone, job, start, retryBackoff)
-
-		select {
-		case <-jobctx.Done():
-			switch jobctx.Err() {
-			case context.DeadlineExceeded:
-				// If our timeout has passed, return an error object,
-				// disregarding any response from job which timed out.
-				// ** See `./doc.go`, section `Response Channel` for more info **
-				wp.responsesChan <- Response{
-					Error:           context.DeadlineExceeded,
-					name:            job.Name,
-					runtimeDuration: time.Since(start),
-				}
-			}
+		jmd := jobMetaData{
+			context:    jobctx,
+			cancelFunc: jobdone,
+			job:        job,
+			startTime:  start,
 		}
+		// Wrap the func before passing to workerpool.Submit
+		go wp.work(&jmd)
+		wp.getJobResults(&jmd)
 	}
 }
 
@@ -238,4 +264,20 @@ func (r *Response) RuntimeDuration() time.Duration {
 // Name returns the job name
 func (r *Response) Name() string {
 	return r.name
+}
+
+// jobMetaData holds misc data for each job
+type jobMetaData struct {
+	context    context.Context
+	cancelFunc context.CancelFunc
+	backoff    backoff.BackOff
+	job        Job
+	startTime  time.Time
+	isSuccess  bool
+}
+
+// successfullyCancel cancels our context and sets isSuccess flag
+func (jmd *jobMetaData) successfullyCancel() {
+	jmd.isSuccess = true
+	jmd.cancelFunc()
 }

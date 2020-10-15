@@ -45,11 +45,122 @@ func TestBasics(t *testing.T) {
 		},
 	})
 	results := wp.StopWaitXT()
-	for _, r := range results {
-		fmt.Println(r)
-	}
 	if len(results) != 3 {
 		t.Fatalf("Expected 3 results got : %d", len(results))
+	}
+}
+
+func TestJobContextOverridesDefaultContext(t *testing.T) {
+	defaultContext := freshCtx()
+
+	jobContextWeWantToOverrideWith, done := context.WithTimeout(freshCtx(), time.Duration(time.Millisecond))
+	defer done()
+
+	wp := New(defaultContext, 10)
+
+	wp.SubmitXT(Job{
+		Name: "Using default ctx",
+		Task: func(o Options) Response {
+			time.Sleep(time.Second)
+			return Response{Data: "OK"}
+		},
+	})
+
+	wp.SubmitXT(Job{
+		Name:    "Using custom per job ctx",
+		Context: jobContextWeWantToOverrideWith,
+		Task: func(o Options) Response {
+			time.Sleep(time.Second)
+			return Response{Data: "OK"}
+		},
+	})
+
+	results := wp.StopWaitXT()
+	errs, succs, expectedSuccs, expectedErrs := 0, 0, 1, 1
+
+	for _, r := range results {
+		if r.Error != nil {
+			errs++
+		} else {
+			succs++
+		}
+	}
+	if errs != expectedErrs || succs != expectedSuccs {
+		t.Fatalf("Expected errors=%d:success=%d : got errors=%d:success=%d", expectedErrs, expectedSuccs, errs, succs)
+	}
+}
+
+func TestTimeouts(t *testing.T) {
+	defaultCtx := context.Background()
+	numWorkers := 10
+	wp := New(defaultCtx, numWorkers)
+	timeout := time.Duration(time.Millisecond)
+
+	// don't have to use cancelFunc if you dont want, we call it for you on success
+	oneMsTimeoutContext, myCncl := context.WithTimeout(context.Background(), timeout)
+	defer myCncl()
+
+	wp.SubmitXT(Job{
+		Name:    "my ctx job",
+		Context: oneMsTimeoutContext,
+		Task: func(o Options) Response {
+			// Simulate long running task
+			time.Sleep(time.Second * 10)
+			return Response{Data: "I could be anything"}
+		},
+	})
+
+	results := wp.StopWaitXT()
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 result : got %d", len(results))
+	}
+
+	first := results[0]
+	if first.Error != context.DeadlineExceeded {
+		t.Fatalf("Expected err %s : got err %s", context.DeadlineExceeded, first.Error)
+	}
+}
+
+func TestCancellingContext(t *testing.T) {
+	defaultContext := freshCtx()
+	wp := New(defaultContext, 10)
+
+	// won't get a response from this job since we cancel it's context
+	ctx, cncl := context.WithCancel(defaultContext)
+	wp.SubmitXT(Job{
+		Name:    "j1",
+		Context: ctx,
+		Task: func(o Options) Response {
+			time.Sleep(time.Millisecond * 10) // Sleep 10 sec
+			return Response{Data: "You shouldn't get a failure or success from me"}
+		},
+	})
+
+	// we still want to make sure we get a response from this job, though
+	wp.SubmitXT(Job{
+		Name: "j2",
+		Task: func(o Options) Response {
+			return Response{Data: "OK"}
+		},
+	})
+
+	// need to cancel ctx for some reason after doing "something"
+	time.Sleep(time.Millisecond * 2)
+	cncl()
+
+	results := wp.StopWaitXT()
+
+	errs, succs, expectedSuccs, expectedErrs := 0, 0, 1, 1
+	for _, r := range results {
+		if r.Error != nil {
+			errs++
+		} else {
+			succs++
+		}
+	}
+
+	if errs != expectedErrs || succs != expectedSuccs {
+		t.Fatalf("Expected errors=%d:success=%d : got errors=%d:success=%d", expectedErrs, expectedSuccs, errs, succs)
 	}
 }
 

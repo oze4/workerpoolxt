@@ -34,9 +34,12 @@
     - [Results](#results)
       - Job results are captured so you can work with them later
       - [How to handle errors?](#error-handling)
-    - [Timeouts](#timeouts)
-      - **Use context for timeouts now**
     - [Context](#context)
+      - Supply your own context
+      - "Default" context required when calling `workerpoolxt.New(...)`
+      - You can override the [default context](#default-context) on a [per job basis](#per-job-context)
+      - [This allows you to do things like custom job timeouts](#per-job-context)
+      - **If context is forcefully cancelled, you will not recieve a `Response` for that job at all!**
     - [Retry](#retry)
       - `int` that defines N number of retries
       - Can only supply retry on a per job basis
@@ -137,8 +140,42 @@ if someResponseFromSomeJob.Error != nil {
 
 ### Context
 
+ - Required default context when creating new `workerpoolxt`
+ - You can override default context per job
+
+#### Default Context
+
 ```golang
-// TODO
+myctx := context.Background() // Any `context.Context`
+numWorkers := 10
+wp := wpxt.New(myctx, numWorkers)
+```
+
+#### Per Job Context
+
+ - **Timeouts**
+   - this example shows how you can use custom timeouts per job
+
+```golang
+defaultCtx := context.Background()
+numWorkers := 10
+wp := wpxt.New(defaultCtx, numWorkers)
+timeout := time.Duration(time.Millisecond)
+
+// don't have to use cancelFunc if you dont want, 
+// we call it for you on success
+myCtx, _ := context.WithTimeout(context.Background(), timeout)
+
+wp.SubmitXT(wpxt.Job{
+    Name: "my ctx job",
+    Context: myCtx,
+    Task: func(o wpxt.Options) wpxt.Response {
+        // Simulate long running task
+        time.Sleep(time.Second*10) 
+        return wpxt.Response{Data: "I could be anything"}
+    },
+})
+// > `Response.Error` will be `context.DeadlineExceeded`
 ```
 
 ### Retry

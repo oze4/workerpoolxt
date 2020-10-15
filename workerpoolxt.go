@@ -101,8 +101,8 @@ func (wp *WorkerPoolXT) getResult(job Job) {
 	}
 }
 
-// finalize returns the final func that calls the user provided Job.Task
-func (wp *WorkerPoolXT) finalize(job Job) func() error {
+// newPayload converts our job into a func based upon all options we were given
+func (wp *WorkerPoolXT) newPayload(job Job) func() error {
 	job.backoff = wp.getBackoff(job)
 
 	return func() error {
@@ -158,17 +158,17 @@ func (wp *WorkerPoolXT) stop(now bool) {
 	})
 }
 
-// start should be ran on it's own goroutine. Sorts out job metadata and options and runs user provided Job.Task
+// do gets the appropriate payload and does it
 func (wp *WorkerPoolXT) do(job Job) {
-	final := wp.finalize(job)
+	payload := wp.newPayload(job)
 	todo := func() {
-		final()
+		payload()
 	}
 
 	// If the job is using Retry, change our `theWork` func
 	if job.backoff != nil {
 		todo = func() {
-			jobErr := backoff.Retry(final, job.backoff)
+			jobErr := backoff.Retry(payload, job.backoff)
 			if jobErr != nil {
 				wp.responsesChan <- Response{
 					name:  job.Name,

@@ -110,7 +110,7 @@ for _, result := range results {
 - What if I encounter an error in one of my jobs?
 - How can I handle or check for errors/timeout?
 
-#### Return Error From Job
+#### Return Error From `Job`
 
 ```golang
 // Just set the `Error` field on the `wpxt.Response` you return
@@ -125,7 +125,7 @@ wp.SubmitXT(wpxt.Job{
 })
 ```
 
-#### Check For Errors
+#### Check For Errors In `Response`
 
 ```golang
 // ... pretend we submitted a bunch of jobs

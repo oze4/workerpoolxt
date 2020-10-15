@@ -39,7 +39,6 @@
       - "Default" context required when calling `workerpoolxt.New(...)`
       - You can override the [default context](#default-context) on a [per job basis](#per-job-context)
       - [This allows you to do things like custom job timeouts](#per-job-context)
-      - **If context is forcefully cancelled, you will not recieve a `Response` for that job at all!**
     - [Retry](#retry)
       - `int` that defines N number of retries
       - Can only supply retry on a per job basis

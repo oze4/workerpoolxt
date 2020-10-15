@@ -9,7 +9,7 @@ import (
 	"github.com/gammazero/workerpool"
 )
 
-// New creates *WorkerPoolXT
+// New creates WorkerPoolXT
 func New(ctx context.Context, maxWorkers int) *WorkerPoolXT {
 	w := &WorkerPoolXT{
 		WorkerPool:    workerpool.New(maxWorkers),
@@ -32,30 +32,48 @@ type WorkerPoolXT struct {
 	responses     []Response
 }
 
-// SubmitXT submits a job. Allows you to not
-// only submit a job, but get the response from it
+// SubmitXT submits a job which you can get a response from
 func (wp *WorkerPoolXT) SubmitXT(job Job) {
 	wp.Submit(wp.wrap(job))
 }
 
-// StopWaitXT gets results then kills the worker pool.
-// You cannot add jobs after calling `StopWaitXT()`
+// StopWaitXT gets results then kills the worker pool
 func (wp *WorkerPoolXT) StopWaitXT() (rs []Response) {
 	wp.stop(false)
 	return wp.responses
 }
 
 // WithOptions sets default options for each job
-// You can also supply options on a per job basis,
-// which will override the default options.
 func (wp *WorkerPoolXT) WithOptions(o Options) {
 	wp.options = o
 }
 
-// getBackoff determines if a job is using Retry - if it is
-// we configure the backoff
-// TODO
-// I would love a 'native' way to retry jobs, though!
+// do gets the appropriate payload and does it
+func (wp *WorkerPoolXT) do(job Job) {
+	payload := wp.newPayload(job)
+	todo := func() {
+		payload()
+	}
+
+	// If the job is using Retry
+	if job.backoff != nil {
+		todo = func() {
+			jobErr := backoff.Retry(payload, job.backoff)
+			if jobErr != nil {
+				wp.responsesChan <- Response{
+					name:  job.Name,
+					Error: jobErr,
+				}
+			}
+		}
+	}
+
+	todo()
+	job.successCancel() // Prob need a better way to do this
+}
+
+// getBackoff determines if a job is using Retry
+// TODO I would love a 'native' way to retry jobs, though!
 func (wp *WorkerPoolXT) getBackoff(job Job) backoff.BackOff {
 	var rbo backoff.BackOff
 	if job.Retry > 0 {
@@ -67,6 +85,14 @@ func (wp *WorkerPoolXT) getBackoff(job Job) backoff.BackOff {
 	return rbo
 }
 
+// getContext decides which context to use : default or job
+func (wp *WorkerPoolXT) getContext(job Job) (context.Context, context.CancelFunc) {
+	if job.Context != nil {
+		return context.WithCancel(job.Context)
+	}
+	return context.WithCancel(wp.context)
+}
+
 // getOptions decides which options to use : default or job
 func (wp *WorkerPoolXT) getOptions(job Job) Options {
 	if job.Options != nil {
@@ -76,14 +102,6 @@ func (wp *WorkerPoolXT) getOptions(job Job) Options {
 		return wp.options
 	}
 	return make(Options)
-}
-
-// getContext decides which context to use : default or job
-func (wp *WorkerPoolXT) getContext(job Job) (context.Context, context.CancelFunc) {
-	if job.Context != nil {
-		return context.WithCancel(job.Context)
-	}
-	return context.WithCancel(wp.context)
 }
 
 // getResult reacts to a jobs context
@@ -108,13 +126,11 @@ func (wp *WorkerPoolXT) newPayload(job Job) func() error {
 	return func() error {
 		o := wp.getOptions(job)
 		f := job.Task(o)
-
 		// If Job not using Retry, don't want to return an error
 		if f.Error != nil && job.backoff != nil {
 			return f.Error
 		}
 
-		// No point in setting this before checking for error
 		f.runtimeDuration = time.Since(job.startTime)
 		f.name = job.Name
 
@@ -128,8 +144,7 @@ func (wp *WorkerPoolXT) newPayload(job Job) func() error {
 	}
 }
 
-// processResponses listens for anything on
-// the responses chan and aggregates results
+// processResponses listens for anything on the responses chan and aggregates results
 func (wp *WorkerPoolXT) processResponses() {
 	for {
 		select {
@@ -152,41 +167,14 @@ func (wp *WorkerPoolXT) stop(now bool) {
 		} else {
 			wp.StopWait()
 		}
-
 		close(wp.responsesChan)
 		wp.killswitch <- true
 	})
 }
 
-// do gets the appropriate payload and does it
-func (wp *WorkerPoolXT) do(job Job) {
-	payload := wp.newPayload(job)
-	todo := func() {
-		payload()
-	}
-
-	// If the job is using Retry, change our `theWork` func
-	if job.backoff != nil {
-		todo = func() {
-			jobErr := backoff.Retry(payload, job.backoff)
-			if jobErr != nil {
-				wp.responsesChan <- Response{
-					name:  job.Name,
-					Error: jobErr,
-				}
-			}
-		}
-	}
-
-	todo()
-	job.successCancel() // Prob need a better way to do this
-}
-
 // wrap generates the func that we pass to Submit.
 func (wp *WorkerPoolXT) wrap(job Job) func() {
 	jobctx, jobdone := wp.getContext(job)
-
-	// This is the func() that ultimately gets passed to `workerpool.Submit(f)`
 	return func() {
 		job.request = &request{
 			context:    jobctx,

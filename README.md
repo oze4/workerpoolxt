@@ -162,9 +162,8 @@ numWorkers := 10
 wp := wpxt.New(defaultCtx, numWorkers)
 timeout := time.Duration(time.Millisecond)
 
-// don't have to use cancelFunc if you dont want, 
-// we call it for you on success
-myCtx, _ := context.WithTimeout(context.Background(), timeout)
+myCtx, done := context.WithTimeout(context.Background(), timeout)
+defer done()
 
 wp.SubmitXT(wpxt.Job{
     Name: "my ctx job",

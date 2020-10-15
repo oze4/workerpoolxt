@@ -19,7 +19,7 @@ func New(ctx context.Context, maxWorkers int) *WorkerPoolXT {
 	}
 
 	go w.processResponses()
-	
+
 	return w
 }
 

@@ -570,3 +570,37 @@ func TestRetry(t *testing.T) {
 		}
 	}
 }
+
+func TestCancelDefaultContext(t *testing.T) {
+	ctx, cncl := context.WithCancel(freshCtx())
+	wp := New(ctx, defaultWorkers)
+	totalJobs := 4
+	errs, succs, expectedErrors, expectedSuccs := 0, 0, totalJobs, 0
+
+	for i := 0; i < totalJobs; i++ {
+		wp.SubmitXT(Job{
+			Name: "a",
+			Task: func(o Options) Response {
+				time.Sleep(time.Second * 5)
+				return Response{Data: true}
+			},
+		})
+	}
+
+	time.Sleep(time.Second)
+	cncl()
+
+	results := wp.StopWaitXT()
+
+	for _, r := range results {
+		if r.Error != nil {
+			errs++
+		} else {
+			succs++
+		}
+	}
+
+	if errs != expectedErrors || succs != expectedSuccs {
+		t.Fatalf("Expected errs=%d:succs=%d : got errs=%d:succs=%d", expectedErrors, expectedSuccs, errs, succs)
+	}
+}

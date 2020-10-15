@@ -38,7 +38,7 @@
       - Supply your own context
       - "Default" context required when calling `workerpoolxt.New(...)`
       - You can override the [default context](#default-context) on a [per job basis](#per-job-context)
-      - [This allows you to do things like custom job timeouts](#per-job-context)
+      - [This allows you to do things like custom job timeouts](#timeouts)
     - [Retry](#retry)
       - `int` that defines N number of retries
       - Can only supply retry on a per job basis
@@ -87,9 +87,11 @@ func main() {
 }
 ```
 
-## How we extend `workerpool`
+---
 
-### Results
+# How we extend `workerpool`
+
+## Results
 
 ```golang
 // ...
@@ -137,12 +139,12 @@ if someResponseFromSomeJob.Error != nil {
 }
 ```
 
-### Context
+## Context
 
  - Required default context when creating new `workerpoolxt`
  - You can override default context per job
 
-#### Default Context
+### Default Context
 
 ```golang
 myctx := context.Background() // Any `context.Context`
@@ -150,10 +152,9 @@ numWorkers := 10
 wp := wpxt.New(myctx, numWorkers)
 ```
 
-#### Per Job Context
+### Per Job Context
 
- - **Timeouts**
-   - this example shows how you can use custom timeouts per job
+#### Timeouts
 
 ```golang
 defaultCtx := context.Background()
@@ -177,7 +178,7 @@ wp.SubmitXT(wpxt.Job{
 // > `Response.Error` will be `context.DeadlineExceeded`
 ```
 
-### Retry
+## Retry
 
 - Optional
 - Seamlessly retry failed jobs
@@ -199,11 +200,11 @@ wp.SubmitXT(wpxt.Job{
 })
 ```
 
-### Options
+## Options
 
 - Help make jobs flexible
 
-#### Default Options
+### Default Options
 
 ```golang
 myopts := map[string]interface{}{
@@ -222,7 +223,7 @@ wp.SubmitXT(wpxt.Job{
 })
 ```
 
-#### Per Job Options
+### Per Job Options
 
 ```golang
 myhttpclient := &http.Client{}

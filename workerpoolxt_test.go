@@ -44,8 +44,9 @@ func TestBasics(t *testing.T) {
 			return Response{Error: errors.New("err")}
 		},
 	})
+
 	results := wp.StopWaitXT()
-	fmt.Println(results)
+
 	if len(results) != 3 {
 		t.Fatalf("Expected 3 results got : %d", len(results))
 	}
@@ -149,17 +150,21 @@ func TestCancellingContext(t *testing.T) {
 
 	results := wp.StopWaitXT()
 
-	errs, succs, expectedSuccs, expectedErrs := 0, 0, 1, 1
+	errs, succs, expectedSuccs, expectedErrs := []Response{}, []Response{}, 1, 1
+
 	for _, r := range results {
 		if r.Error != nil {
-			errs++
+			errs = append(errs, r)
 		} else {
-			succs++
+			succs = append(succs, r)
 		}
 	}
 
-	if errs != expectedErrs || succs != expectedSuccs {
-		t.Fatalf("Expected errors=%d:success=%d : got errors=%d:success=%d", expectedErrs, expectedSuccs, errs, succs)
+	if len(errs) != expectedErrs || len(succs) != expectedSuccs {
+		t.Fatalf("Expected errors=%d:success=%d : got errors=%d:success=%d", expectedErrs, expectedSuccs, len(errs), len(succs))
+	}
+	if errs[0].Error != context.Canceled {
+		t.Fatalf("Expected error '%s' : got '%s'", context.Canceled, errs[0].Error)
 	}
 }
 
@@ -630,5 +635,44 @@ func TestDeferDoesNotCancelJobImmediately(t *testing.T) {
 
 	if results[0].Data != "Done" {
 		t.Fatalf("Expected 'Done' : got %s", results[0].Data)
+	}
+}
+
+func TestTimeoutHappensBeforeRetry(t *testing.T) {
+	// See issue #8 on GitHub
+	expectedResults := 1
+	timeout := time.Duration(time.Millisecond * 10)
+
+	wp := New(freshCtx(), 10)
+
+	ctx, done := context.WithTimeout(context.Background(), timeout)
+	defer done()
+
+	wp.SubmitXT(Job{
+		Name:    "a",
+		Context: ctx,
+		// 10 retries with a job runtime of 5ms means this job should take 50ms
+		// but it is set to timeout in 10ms
+		// We only want the response from the timeout error, not from the last retry
+		Retry: 10,
+		Task: func(o Options) Response {
+			time.Sleep(time.Millisecond * 5)
+			errs := errors.New("test error")
+			if errs != nil {
+				return Response{Error: errs}
+			}
+			return Response{Data: "from a"}
+		},
+	})
+
+	results := wp.StopWaitXT()
+
+	if len(results) != expectedResults {
+		t.Fatalf("Expected %d results : got %d", expectedResults, len(results))
+	}
+	to := timeout + timeout
+	if results[0].RuntimeDuration() > to {
+		t.Fatalf("Retries over rode timeout! When a job has a timeout of 1 second with Retry of 5, but each retry takes" +
+			" .5 seconds, we don't want a reply from the last retry, we want only a response from the timeout.")
 	}
 }

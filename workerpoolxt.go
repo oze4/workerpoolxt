@@ -12,10 +12,10 @@ import (
 // New creates WorkerPoolXT
 func New(ctx context.Context, maxWorkers int) *WorkerPoolXT {
 	w := &WorkerPoolXT{
-		WorkerPool:    workerpool.New(maxWorkers),
-		context:       ctx,
-		responsesChan: make(chan Response),
-		killswitch:    make(chan struct{}),
+		WorkerPool:   workerpool.New(maxWorkers),
+		context:      ctx,
+		responseChan: make(chan Response),
+		killswitch:   make(chan struct{}),
 	}
 
 	go w.processResponses()
@@ -26,12 +26,12 @@ func New(ctx context.Context, maxWorkers int) *WorkerPoolXT {
 // WorkerPoolXT extends `github.com/gammazero/workerpool`
 type WorkerPoolXT struct {
 	*workerpool.WorkerPool
-	context       context.Context
-	killswitch    chan struct{}
-	options       Options
-	once          sync.Once
-	responsesChan chan Response
-	responses     []Response
+	context      context.Context
+	killswitch   chan struct{}
+	options      Options
+	once         sync.Once
+	responseChan chan Response
+	responses    []Response
 }
 
 // SubmitXT submits a job which you can get a response from
@@ -53,7 +53,6 @@ func (wp *WorkerPoolXT) WithOptions(o Options) {
 // do gets the appropriate payload and does it
 func (wp *WorkerPoolXT) do(job Job) {
 	payload := wp.newPayload(job)
-
 	todo := func() {
 		payload()
 	}
@@ -63,7 +62,7 @@ func (wp *WorkerPoolXT) do(job Job) {
 		todo = func() {
 			err := backoff.Retry(payload, job.backoff)
 			if err != nil {
-				job.response <- newResponseError(err, job.Name, job.startTime)
+				job.response <- newResponseError(err, job.Name, job.start)
 			}
 		}
 	}
@@ -75,12 +74,13 @@ func (wp *WorkerPoolXT) do(job Job) {
 // getBackoff determines if a job is using Retry
 // TODO I would love a 'native' way to retry jobs, though!
 func (wp *WorkerPoolXT) getBackoff(job Job) backoff.BackOff {
-	var b backoff.BackOff
 	if job.Retry > 0 {
-		x, r := backoff.NewExponentialBackOff(), uint64(job.Retry)
-		b = backoff.WithMaxRetries(x, r)
+		return backoff.WithMaxRetries(
+			backoff.NewExponentialBackOff(),
+			uint64(job.Retry))
 	}
-	return b
+
+	return nil
 }
 
 // getContext decides which context to use : default or job
@@ -88,33 +88,36 @@ func (wp *WorkerPoolXT) getContext(job Job) (context.Context, context.CancelFunc
 	if job.Context != nil {
 		return context.WithCancel(job.Context)
 	}
+
 	return context.WithCancel(wp.context)
 }
 
 // getOptions decides which options to use : default or job
 func (wp *WorkerPoolXT) getOptions(job Job) Options {
+	// job.Options should override wp.options
+	// Order of 'if' statements important here
 	if job.Options != nil {
 		return job.Options
 	}
+
 	if wp.options != nil {
 		return wp.options
 	}
-	return make(Options)
+
+	return nil
 }
 
 // getResult reacts to a jobs context
 func (wp *WorkerPoolXT) getResult(job Job) {
 	select {
+	// Have job response, feed to aggregate
 	case response := <-job.response:
-		wp.responsesChan <- response
+		wp.responseChan <- response
 
 	case <-job.ctx.Done():
 		switch job.ctx.Err() {
-		case context.DeadlineExceeded:
-			wp.responsesChan <- newResponseError(context.DeadlineExceeded, job.Name, job.startTime)
-
-		case context.Canceled:
-			wp.responsesChan <- newResponseError(context.Canceled, job.Name, job.startTime)
+		default:
+			wp.responseChan <- newResponseError(job.ctx.Err(), job.Name, job.start)
 		}
 	}
 }
@@ -127,28 +130,27 @@ func (wp *WorkerPoolXT) newPayload(job Job) func() error {
 		o := wp.getOptions(job)
 		r := job.Task(o)
 
-		// If Job not using Retry, don't want to return an error
+		// If job not using Retry, we do NOT want to
+		// return an error as doing so could cause issues
 		if r.Error != nil && job.backoff != nil {
 			return r.Error
 		}
 
-		r.runtimeDuration = time.Since(job.startTime)
+		r.duration = time.Since(job.start)
 		r.name = job.Name
 
-		if job.ctx.Err() == nil {
-			job.response <- r
-		}
-
-		// We can return nil whether Job is using Retry or not
+		job.response <- r
+		// We can return nil whether job is using Retry or
+		// not, it won't cause issues like return error would
 		return nil
 	}
 }
 
-// processResponses listens for anything on the responses chan and aggregates results
+// processResponses listens for responses on responsesChan
 func (wp *WorkerPoolXT) processResponses() {
 	for {
 		select {
-		case response, ok := <-wp.responsesChan:
+		case response, ok := <-wp.responseChan:
 			if !ok {
 				goto Done
 			}
@@ -167,7 +169,8 @@ func (wp *WorkerPoolXT) stop(now bool) {
 		} else {
 			wp.StopWait()
 		}
-		close(wp.responsesChan)
+
+		close(wp.responseChan)
 		wp.killswitch <- struct{}{}
 	})
 }
@@ -178,10 +181,10 @@ func (wp *WorkerPoolXT) wrap(job Job) func() {
 
 	return func() {
 		job.metadata = &metadata{
-			ctx:       ctx,
-			done:      done,
-			response:  make(chan Response),
-			startTime: time.Now(),
+			ctx:      ctx,
+			done:     done,
+			response: make(chan Response),
+			start:    time.Now(),
 		}
 
 		go wp.do(job)
@@ -203,24 +206,24 @@ type Job struct {
 }
 
 type metadata struct {
-	backoff   backoff.BackOff
-	ctx       context.Context
-	done      context.CancelFunc
-	response  chan Response
-	startTime time.Time
+	backoff  backoff.BackOff
+	ctx      context.Context
+	done     context.CancelFunc
+	response chan Response
+	start    time.Time
 }
 
 // Response holds job results
 type Response struct {
-	Error           error
-	Data            interface{}
-	name            string
-	runtimeDuration time.Duration
+	Error    error
+	Data     interface{}
+	name     string
+	duration time.Duration
 }
 
 // RuntimeDuration returns the amount of time it took to run the job
 func (r *Response) RuntimeDuration() time.Duration {
-	return r.runtimeDuration
+	return r.duration
 }
 
 // Name returns the job name
@@ -231,8 +234,8 @@ func (r *Response) Name() string {
 // helper func
 func newResponseError(err error, jobName string, start time.Time) Response {
 	return Response{
-		Error:           err,
-		name:            jobName,
-		runtimeDuration: time.Since(start),
+		Error:    err,
+		name:     jobName,
+		duration: time.Since(start),
 	}
 }

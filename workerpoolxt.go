@@ -62,7 +62,7 @@ func (wp *WorkerPoolXT) do(job Job) {
 		todo = func() {
 			err := backoff.Retry(payload, job.backoff)
 			if err != nil {
-				job.response <- newResponseError(err, job.Name, job.start)
+				job.response <- newResponseError(err, job.Name, job.startedAt)
 			}
 		}
 	}
@@ -117,7 +117,7 @@ func (wp *WorkerPoolXT) getResult(job Job) {
 	case <-job.ctx.Done():
 		switch job.ctx.Err() {
 		default:
-			wp.responseChan <- newResponseError(job.ctx.Err(), job.Name, job.start)
+			wp.responseChan <- newResponseError(job.ctx.Err(), job.Name, job.startedAt)
 		}
 	}
 }
@@ -136,7 +136,7 @@ func (wp *WorkerPoolXT) newPayload(job Job) func() error {
 			return r.Error
 		}
 
-		r.duration = time.Since(job.start)
+		r.duration = time.Since(job.startedAt)
 		r.name = job.Name
 
 		job.response <- r
@@ -181,10 +181,10 @@ func (wp *WorkerPoolXT) wrap(job Job) func() {
 
 	return func() {
 		job.metadata = &metadata{
-			ctx:      ctx,
-			done:     done,
-			response: make(chan Response),
-			start:    time.Now(),
+			ctx:       ctx,
+			done:      done,
+			response:  make(chan Response),
+			startedAt: time.Now(),
 		}
 
 		go wp.do(job)
@@ -206,11 +206,11 @@ type Job struct {
 }
 
 type metadata struct {
-	backoff  backoff.BackOff
-	ctx      context.Context
-	done     context.CancelFunc
-	response chan Response
-	start    time.Time
+	backoff   backoff.BackOff
+	ctx       context.Context
+	done      context.CancelFunc
+	response  chan Response
+	startedAt time.Time
 }
 
 // Response holds job results

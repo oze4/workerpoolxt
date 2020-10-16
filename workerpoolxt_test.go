@@ -27,24 +27,25 @@ var (
 func TestBasics(t *testing.T) {
 	wp := New(freshCtx(), defaultWorkers)
 	wp.SubmitXT(Job{
-		Name: "Basics",
+		Name: "a",
 		Task: func(o Options) Response {
 			return Response{Data: true}
 		},
 	})
 	wp.SubmitXT(Job{
-		Name: "Basics",
+		Name: "b",
 		Task: func(o Options) Response {
 			return Response{Data: true}
 		},
 	})
 	wp.SubmitXT(Job{
-		Name: "Basics",
+		Name: "c",
 		Task: func(o Options) Response {
 			return Response{Error: errors.New("err")}
 		},
 	})
 	results := wp.StopWaitXT()
+	fmt.Println(results)
 	if len(results) != 3 {
 		t.Fatalf("Expected 3 results got : %d", len(results))
 	}
@@ -125,22 +126,20 @@ func TestCancellingContext(t *testing.T) {
 	defaultContext := freshCtx()
 	wp := New(defaultContext, 10)
 
-	// won't get a response from this job since we cancel it's context
-	ctx, cncl := context.WithCancel(defaultContext)
+	ctx, cncl := context.WithCancel(freshCtx())
 	wp.SubmitXT(Job{
 		Name:    "j1",
 		Context: ctx,
 		Task: func(o Options) Response {
 			time.Sleep(time.Millisecond * 10) // Sleep 10 sec
-			return Response{Data: "You shouldn't get a failure or success from me"}
+			return Response{Data: "I will fail with context.Canceled"}
 		},
 	})
 
-	// we still want to make sure we get a response from this job, though
 	wp.SubmitXT(Job{
 		Name: "j2",
 		Task: func(o Options) Response {
-			return Response{Data: "OK"}
+			return Response{Data: "I will not fail"}
 		},
 	})
 
@@ -358,7 +357,6 @@ func TestSubmitXT_HowToHandleErrors(t *testing.T) {
 			}
 			return Response{Data: "uhoh"}
 		}})
-
 	results := wp.StopWaitXT()
 	failed, succeeded := 0, 0
 	for _, r := range results {
@@ -369,6 +367,7 @@ func TestSubmitXT_HowToHandleErrors(t *testing.T) {
 		}
 	}
 	if succeeded != 1 || failed != 2 {
+		fmt.Println(results)
 		t.Fatalf("expected succeeded=1:failed=2 : got succeeded=%d:failed=%d", succeeded, failed)
 	}
 }
@@ -602,5 +601,34 @@ func TestCancelDefaultContext(t *testing.T) {
 
 	if errs != expectedErrors || succs != expectedSuccs {
 		t.Fatalf("Expected errs=%d:succs=%d : got errs=%d:succs=%d", expectedErrors, expectedSuccs, errs, succs)
+	}
+}
+
+func TestDeferDoesNotCancelJobImmediately(t *testing.T) {
+	wp := New(context.Background(), 10)
+
+	customContext, done := context.WithTimeout(
+		context.Background(),
+		time.Duration(time.Second*1),
+	)
+	defer done()
+
+	wp.SubmitXT(Job{
+		Name:    "a",
+		Context: customContext,
+		Task: func(o Options) Response {
+			time.Sleep(time.Millisecond * 200)
+			return Response{Data: "Done"}
+		},
+	})
+
+	results := wp.StopWaitXT()
+
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 got %d", len(results))
+	}
+
+	if results[0].Data != "Done" {
+		t.Fatalf("Expected 'Done' : got %s", results[0].Data)
 	}
 }

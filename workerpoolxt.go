@@ -63,13 +63,13 @@ func (wp *WorkerPoolXT) do(job Job) {
 		todo = func() {
 			err := backoff.Retry(payload, job.backoff)
 			if err != nil {
-				wp.responsesChan <- newResponseError(err, job.Name, job.startTime)
+				job.response <- newResponseError(err, job.Name, job.startTime)
 			}
 		}
 	}
 
 	todo()
-	job.successCancel() // Prob need a better way to do this
+	job.done()
 }
 
 // getBackoff determines if a job is using Retry
@@ -105,15 +105,16 @@ func (wp *WorkerPoolXT) getOptions(job Job) Options {
 // getResult reacts to a jobs context
 func (wp *WorkerPoolXT) getResult(job Job) {
 	select {
-	case <-job.context.Done():
-		switch job.context.Err() {
+	case response := <-job.response:
+		wp.responsesChan <- response
+
+	case <-job.ctx.Done():
+		switch job.ctx.Err() {
 		case context.DeadlineExceeded:
 			wp.responsesChan <- newResponseError(context.DeadlineExceeded, job.Name, job.startTime)
 
 		case context.Canceled:
-			if !job.contextCancelledInternally {
-				wp.responsesChan <- newResponseError(context.Canceled, job.Name, job.startTime)
-			}
+			wp.responsesChan <- newResponseError(context.Canceled, job.Name, job.startTime)
 		}
 	}
 }
@@ -131,13 +132,11 @@ func (wp *WorkerPoolXT) newPayload(job Job) func() error {
 			return r.Error
 		}
 
-		// No point in setting these prior to error check
 		r.runtimeDuration = time.Since(job.startTime)
 		r.name = job.Name
 
-		// Only send a response if our contex is good
-		if job.context.Err() == nil {
-			wp.responsesChan <- r
+		if job.ctx.Err() == nil {
+			job.response <- r
 		}
 
 		// We can return nil whether Job is using Retry or not
@@ -175,12 +174,14 @@ func (wp *WorkerPoolXT) stop(now bool) {
 
 // wrap generates the func that we pass to Submit.
 func (wp *WorkerPoolXT) wrap(job Job) func() {
-	jobctx, jobdone := wp.getContext(job)
+	ctx, done := wp.getContext(job)
+
 	return func() {
-		job.request = &request{
-			context:    jobctx,
-			cancelFunc: jobdone,
-			startTime:  time.Now(),
+		job.metadata = &metadata{
+			ctx:       ctx,
+			done:      done,
+			response:  make(chan Response),
+			startTime: time.Now(),
 		}
 
 		go wp.do(job)
@@ -193,12 +194,20 @@ type Options map[string]interface{}
 
 // Job holds job data
 type Job struct {
-	*request
+	*metadata
 	Name    string
 	Task    func(Options) Response
 	Context context.Context
 	Options Options
 	Retry   int
+}
+
+type metadata struct {
+	backoff   backoff.BackOff
+	ctx       context.Context
+	done      context.CancelFunc
+	response  chan Response
+	startTime time.Time
 }
 
 // Response holds job results
@@ -217,22 +226,6 @@ func (r *Response) RuntimeDuration() time.Duration {
 // Name returns the job name
 func (r *Response) Name() string {
 	return r.name
-}
-
-// request holds misc data for each job
-type request struct {
-	backoff                    backoff.BackOff
-	cancelFunc                 context.CancelFunc
-	context                    context.Context
-	contextCancelledInternally bool
-	job                        Job
-	startTime                  time.Time
-}
-
-// successCancel cancels our context and sets isSuccess flag
-func (r *request) successCancel() {
-	r.contextCancelledInternally = true
-	r.cancelFunc()
 }
 
 // helper func

@@ -52,6 +52,41 @@ func TestBasics(t *testing.T) {
 	}
 }
 
+func TestJobIsCancelledImmediately(t *testing.T) {
+	expectedResultsCount := 1
+	expectedError := context.Canceled
+	expectedDurationLessThan := time.Millisecond * 5
+	errorAfterDuration := time.Millisecond * 100
+	start := time.Now()
+	wp := New(freshCtx(), defaultWorkers)
+
+	ctx, done := context.WithCancel(context.Background())
+	wp.SubmitXT(Job{
+		Name:    "a",
+		Context: ctx,
+		Task: func(o Options) Response {
+			time.Sleep(errorAfterDuration)
+			return Response{Data: "from a"}
+		},
+	})
+
+	time.Sleep(time.Millisecond * 2)
+	done()
+
+	results := wp.StopWaitXT()
+	took := time.Since(start)
+	resultsLen := len(results)
+	if took > expectedDurationLessThan {
+		t.Fatalf("Expected runtime of %s : got %s", expectedDurationLessThan, took)
+	}
+	if expectedResultsCount != resultsLen {
+		t.Fatalf("Expected %d results : got %d", expectedResultsCount, resultsLen)
+	}
+	if results[0].Error != expectedError {
+		t.Fatalf("Expected error %s : got %s", expectedError, results[0].Error)
+	}
+}
+
 func TestJobContextOverridesDefaultContext(t *testing.T) {
 	defaultContext := freshCtx()
 

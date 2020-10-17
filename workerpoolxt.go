@@ -11,183 +11,168 @@ import (
 
 // New creates WorkerPoolXT
 func New(ctx context.Context, maxWorkers int) *WorkerPoolXT {
-	w := &WorkerPoolXT{
+	p := &WorkerPoolXT{
 		WorkerPool: workerpool.New(maxWorkers),
 		context:    ctx,
-		resultChan: make(chan Result),
-		killswitch: make(chan struct{}),
+		result:     make(chan Result),
+		kill:       make(chan struct{}),
 	}
-
-	go w.processresults()
-
-	return w
+	go p.processResults()
+	return p
 }
 
 // WorkerPoolXT extends `github.com/gammazero/workerpool`
 type WorkerPoolXT struct {
 	*workerpool.WorkerPool
-	context    context.Context
-	killswitch chan struct{}
-	options    Options
-	once       sync.Once
-	resultChan chan Result
-	results    []Result
+	context context.Context
+	kill    chan struct{}
+	options Options
+	once    sync.Once
+	result  chan Result
+	results []Result
 }
 
 // SubmitXT submits a job which you can get a result from
-func (wp *WorkerPoolXT) SubmitXT(job Job) {
-	wp.Submit(wp.wrap(job))
+func (p *WorkerPoolXT) SubmitXT(j Job) {
+	p.Submit(p.wrap(j))
 }
 
 // StopWaitXT gets results then kills the worker pool
-func (wp *WorkerPoolXT) StopWaitXT() (rs []Result) {
-	wp.stop(false)
-	return wp.results
+func (p *WorkerPoolXT) StopWaitXT() (rs []Result) {
+	p.stop(false)
+	return p.results
 }
 
 // WithOptions sets default options for each job
-func (wp *WorkerPoolXT) WithOptions(o Options) {
-	wp.options = o
+func (p *WorkerPoolXT) WithOptions(o Options) {
+	p.options = o
 }
 
 // do gets the appropriate payload and does it
-func (wp *WorkerPoolXT) do(job Job) {
-	payload := wp.newPayload(job)
-	todo := func() {
-		payload()
-	}
-
-	// If the job is using Retry
-	if job.backoff != nil {
+func (p *WorkerPoolXT) do(j Job) {
+	// Need to change how we call our payload if job is using retry
+	payload := p.newPayload(j)
+	// Job not using retry, just call what we were given
+	todo := func() { payload() }
+	// Job using retry
+	if j.bo != nil {
 		todo = func() {
-			err := backoff.Retry(payload, job.backoff)
+			err := backoff.Retry(payload, j.bo)
 			if err != nil {
-				job.result <- job.errResult(err)
+				j.result <- j.errResult(err)
 			}
 		}
 	}
-
+	// Do the todo
 	todo()
-	job.done()
+	j.done()
 }
 
 // getBackoff determines if a job is using Retry
 // TODO I would love a 'native' way to retry jobs, though!
-func (wp *WorkerPoolXT) getBackoff(job Job) backoff.BackOff {
-	if job.Retry > 0 {
+func (p *WorkerPoolXT) getBackoff(j Job) backoff.BackOff {
+	if j.Retry > 0 {
 		return backoff.WithMaxRetries(
 			backoff.NewExponentialBackOff(),
-			uint64(job.Retry))
+			uint64(j.Retry))
 	}
-
 	return nil
 }
 
 // getContext decides which context to use : default or job
-func (wp *WorkerPoolXT) getContext(job Job) (context.Context, context.CancelFunc) {
-	if job.Context != nil {
-		return context.WithCancel(job.Context)
+func (p *WorkerPoolXT) getContext(j Job) (context.Context, context.CancelFunc) {
+	if j.Context != nil {
+		return context.WithCancel(j.Context)
 	}
-
-	return context.WithCancel(wp.context)
+	return context.WithCancel(p.context)
 }
 
 // getOptions decides which options to use : default or job
-func (wp *WorkerPoolXT) getOptions(job Job) Options {
-	// job.Options should override wp.options
-	// Order of 'if' statements important here
-	if job.Options != nil {
-		return job.Options
+func (p *WorkerPoolXT) getOptions(j Job) Options {
+	// job options should override default pool options
+	if j.Options != nil {
+		return j.Options
 	}
-
-	if wp.options != nil {
-		return wp.options
+	if p.options != nil {
+		return p.options
 	}
-
 	return nil
 }
 
 // getResult reacts to a jobs context
-func (wp *WorkerPoolXT) getResult(job Job) {
+func (p *WorkerPoolXT) getResult(j Job) {
 	select {
-	// Have job result, feed to aggregate
-	case result := <-job.result:
-		wp.resultChan <- result
-
-	case <-job.ctx.Done():
-		switch job.ctx.Err() {
+	// Have job result, feed to pool
+	case r := <-j.result:
+		p.result <- r
+	case <-j.ctx.Done():
+		// "catch" any context errors
+		switch j.ctx.Err() {
 		default:
-			wp.resultChan <- job.errResultCtx()
+			p.result <- j.errResultCtx()
 		}
 	}
 }
 
 // newPayload converts our job into a func based upon all options we were given
-func (wp *WorkerPoolXT) newPayload(job Job) func() error {
-	job.backoff = wp.getBackoff(job)
-
+func (p *WorkerPoolXT) newPayload(j Job) func() error {
+	j.bo = p.getBackoff(j)
+	// If job using retry, we need to create our payload differently
 	return func() error {
-		o := wp.getOptions(job)
-		r := job.Task(o)
-
-		// If job not using Retry, we do NOT want to
-		// return an error as doing so could cause issues
-		if r.Error != nil && job.backoff != nil {
+		o := p.getOptions(j)
+		r := j.Task(o)
+		// Only return error if job is using retry
+		if r.Error != nil && j.bo != nil {
 			return r.Error
 		}
-
-		r.duration = time.Since(job.startedAt)
-		r.name = job.Name
-
-		job.result <- r
-		// We can return nil whether job is using Retry or
-		// not, it won't cause issues like return error would
+		r.duration = time.Since(j.startedAt)
+		r.name = j.Name
+		j.result <- r
+		// Return nil whether job is using retry or not
 		return nil
 	}
 }
 
-// processresults listens for results on resultsChan
-func (wp *WorkerPoolXT) processresults() {
+// processResults listens for results on resultsChan
+func (p *WorkerPoolXT) processResults() {
 	for {
 		select {
-		case result, ok := <-wp.resultChan:
+		case result, ok := <-p.result:
 			if !ok {
 				goto Done
 			}
-			wp.results = append(wp.results, result)
+			p.results = append(p.results, result)
 		}
 	}
 Done:
-	<-wp.killswitch
+	<-p.kill
 }
 
 // stop either stops the worker pool now or later
-func (wp *WorkerPoolXT) stop(now bool) {
-	wp.once.Do(func() {
+func (p *WorkerPoolXT) stop(now bool) {
+	p.once.Do(func() {
 		if now {
-			wp.Stop()
+			p.Stop()
 		} else {
-			wp.StopWait()
+			p.StopWait()
 		}
-
-		close(wp.resultChan)
-		wp.killswitch <- struct{}{}
+		close(p.result)
+		p.kill <- struct{}{}
 	})
 }
 
 // wrap generates the func that we pass to Submit.
-func (wp *WorkerPoolXT) wrap(job Job) func() {
-	ctx, done := wp.getContext(job)
-
+func (p *WorkerPoolXT) wrap(j Job) func() {
+	ctx, done := p.getContext(j)
+	// This is the func we ultimately pass to `workerpool`
 	return func() {
-		job.jobMetadata = &jobMetadata{
+		j.metadata = &metadata{
 			ctx:       ctx,
 			done:      done,
 			result:    make(chan Result),
 			startedAt: time.Now(),
 		}
-
-		go wp.do(job)
-		wp.getResult(job)
+		go p.do(j)
+		p.getResult(j)
 	}
 }

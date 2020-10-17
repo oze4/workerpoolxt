@@ -9,7 +9,7 @@ import (
 
 // Job holds job data
 type Job struct {
-	*jobMetadata
+	*metadata
 	Name    string
 	Task    func(Options) Result
 	Context context.Context
@@ -30,11 +30,11 @@ func (j *Job) errResultCtx() Result {
 	return j.errResult(j.ctx.Err())
 }
 
-// jobMetadata is mostly for organizational purposes. Holds misc data, etc... about each job
-type jobMetadata struct {
-	backoff   backoff.BackOff
+// metadata is mostly for organizational purposes. Holds misc data, etc... about each job
+type metadata struct {
+	bo        backoff.BackOff
 	ctx       context.Context
 	done      context.CancelFunc
-	result  chan Result
+	result    chan Result
 	startedAt time.Time
 }

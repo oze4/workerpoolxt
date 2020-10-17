@@ -12,13 +12,13 @@ import (
 // New creates WorkerPoolXT
 func New(ctx context.Context, maxWorkers int) *WorkerPoolXT {
 	w := &WorkerPoolXT{
-		WorkerPool:   workerpool.New(maxWorkers),
-		context:      ctx,
-		responseChan: make(chan Response),
-		killswitch:   make(chan struct{}),
+		WorkerPool: workerpool.New(maxWorkers),
+		context:    ctx,
+		resultChan: make(chan Result),
+		killswitch: make(chan struct{}),
 	}
 
-	go w.processResponses()
+	go w.processresults()
 
 	return w
 }
@@ -26,23 +26,23 @@ func New(ctx context.Context, maxWorkers int) *WorkerPoolXT {
 // WorkerPoolXT extends `github.com/gammazero/workerpool`
 type WorkerPoolXT struct {
 	*workerpool.WorkerPool
-	context      context.Context
-	killswitch   chan struct{}
-	options      Options
-	once         sync.Once
-	responseChan chan Response
-	responses    []Response
+	context    context.Context
+	killswitch chan struct{}
+	options    Options
+	once       sync.Once
+	resultChan chan Result
+	results    []Result
 }
 
-// SubmitXT submits a job which you can get a response from
+// SubmitXT submits a job which you can get a result from
 func (wp *WorkerPoolXT) SubmitXT(job Job) {
 	wp.Submit(wp.wrap(job))
 }
 
 // StopWaitXT gets results then kills the worker pool
-func (wp *WorkerPoolXT) StopWaitXT() (rs []Response) {
+func (wp *WorkerPoolXT) StopWaitXT() (rs []Result) {
 	wp.stop(false)
-	return wp.responses
+	return wp.results
 }
 
 // WithOptions sets default options for each job
@@ -62,7 +62,7 @@ func (wp *WorkerPoolXT) do(job Job) {
 		todo = func() {
 			err := backoff.Retry(payload, job.backoff)
 			if err != nil {
-				job.response <- job.errResponse(err)
+				job.result <- job.errResult(err)
 			}
 		}
 	}
@@ -110,14 +110,14 @@ func (wp *WorkerPoolXT) getOptions(job Job) Options {
 // getResult reacts to a jobs context
 func (wp *WorkerPoolXT) getResult(job Job) {
 	select {
-	// Have job response, feed to aggregate
-	case response := <-job.response:
-		wp.responseChan <- response
+	// Have job result, feed to aggregate
+	case result := <-job.result:
+		wp.resultChan <- result
 
 	case <-job.ctx.Done():
 		switch job.ctx.Err() {
 		default:
-			wp.responseChan <- job.errResponseCtx()
+			wp.resultChan <- job.errResultCtx()
 		}
 	}
 }
@@ -139,22 +139,22 @@ func (wp *WorkerPoolXT) newPayload(job Job) func() error {
 		r.duration = time.Since(job.startedAt)
 		r.name = job.Name
 
-		job.response <- r
+		job.result <- r
 		// We can return nil whether job is using Retry or
 		// not, it won't cause issues like return error would
 		return nil
 	}
 }
 
-// processResponses listens for responses on responsesChan
-func (wp *WorkerPoolXT) processResponses() {
+// processresults listens for results on resultsChan
+func (wp *WorkerPoolXT) processresults() {
 	for {
 		select {
-		case response, ok := <-wp.responseChan:
+		case result, ok := <-wp.resultChan:
 			if !ok {
 				goto Done
 			}
-			wp.responses = append(wp.responses, response)
+			wp.results = append(wp.results, result)
 		}
 	}
 Done:
@@ -170,7 +170,7 @@ func (wp *WorkerPoolXT) stop(now bool) {
 			wp.StopWait()
 		}
 
-		close(wp.responseChan)
+		close(wp.resultChan)
 		wp.killswitch <- struct{}{}
 	})
 }
@@ -183,7 +183,7 @@ func (wp *WorkerPoolXT) wrap(job Job) func() {
 		job.jobMetadata = &jobMetadata{
 			ctx:       ctx,
 			done:      done,
-			response:  make(chan Response),
+			result:    make(chan Result),
 			startedAt: time.Now(),
 		}
 

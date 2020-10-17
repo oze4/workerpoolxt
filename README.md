@@ -48,8 +48,8 @@
       - Options are nothing more than `map[string]interface{}` so that you may supply anything you wish
       - Job options override default options, **_we do NOT merge options_**
     - Runtime duration
-      - Access a job's runtime duration via it's response
-      - e.g. `howLongItTook := someResponseFromSomeJob.RuntimeDuration() //-> time.Duration`
+      - Access a job's runtime duration via it's result
+      - e.g. `howLongItTook := someResultFromSomeJob.Duration time.Duration`
 
 ---
 
@@ -74,8 +74,8 @@ func main() {
 
     wp.SubmitXT(wpxt.Job{
         Name: "My first job",
-        Task: func(o wpxt.Options) wpxt.Response {
-            return wpxt.Response{Data: "Hello, world!"}
+        Task: func(o wpxt.Options) wpxt.Result {
+            return wpxt.Result{Data: "Hello, world!"}
         },
     })
 
@@ -98,7 +98,7 @@ func main() {
 // ... pretend we submitted jobs here
 // ...
 
-results := wp.StopWaitXT() // -> []wpxt.Response
+results := wp.StopWaitXT() // -> []wpxt.Result
 
 for _, result := range results {
     // If job failed, `result.Error != nil`
@@ -113,28 +113,28 @@ for _, result := range results {
 #### Return Error From `Job`
 
 ```golang
-// Just set the `Error` field on the `wpxt.Response` you return
+// Just set the `Error` field on the `wpxt.Result` you return
 wp.SubmitXT(wpxt.Job{
     Name: "How to handle errors",
-    Task: func(o wpxt.Options) wpxt.Response {
+    Task: func(o wpxt.Options) wpxt.Result {
         // Pretend we got an error doing something
         if theError != nil {
-            return wpxt.Response{Error: theError}
+            return wpxt.Result{Error: theError}
         }
     },
 })
 ```
 
-#### Check For Errors In `Response`
+#### Check For Errors In `Result`
 
 ```golang
 // ... pretend we submitted a bunch of jobs
 //
-// StopWaitXT() returns []wpxt.Response
-// Each response has an `Error` field
+// StopWaitXT() returns []wpxt.Result
+// Each result has an `Error` field
 // Whether a timeout, or an error you set
 // Check for it like
-if someResponseFromSomeJob.Error != nil {
+if someResultFromSomeJob.Error != nil {
     // ....
 }
 ```
@@ -168,13 +168,13 @@ defer done()
 wp.SubmitXT(wpxt.Job{
     Name: "my ctx job",
     Context: myCtx,
-    Task: func(o wpxt.Options) wpxt.Response {
+    Task: func(o wpxt.Options) wpxt.Result {
         // Simulate long running task
         time.Sleep(time.Second*10) 
-        return wpxt.Response{Data: "I could be anything"}
+        return wpxt.Result{Data: "I could be anything"}
     },
 })
-// > `Response.Error` will be `context.DeadlineExceeded`
+// > `Result.Error` will be `context.DeadlineExceeded`
 ```
 
 ## Retry
@@ -193,8 +193,8 @@ wp.SubmitXT(wpxt.Job{
     Name: "I will retry 5 times",
     // Set timeout field on job
     Context: timeoutctx,
-    Task: func(o wpxt.Options) wpxt.Response {
-        return wpxt.Response{Error: errors.New("some_err")}
+    Task: func(o wpxt.Options) wpxt.Result {
+        return wpxt.Result{Error: errors.New("some_err")}
     },
 })
 ```
@@ -215,7 +215,7 @@ wp.WithOptions(myopts)
 
 wp.SubmitXT(wpxt.Job{
     Name: "myjob",
-    Task: func(o wpxt.Options) wpxt.Response {
+    Task: func(o wpxt.Options) wpxt.Result {
         // access options here
         client := o["myclient"]
     },
@@ -234,7 +234,7 @@ wp.SubmitXT(wpxt.Job{
     Options: map[string]interface{}{
         "http": myhttpclient,
     },
-    Task: func(o wpxt.Options) wpxt.Response {
+    Task: func(o wpxt.Options) wpxt.Result {
         // access options here
         httpclient := o["http"]
         // ... do work with `httpclient`
@@ -247,7 +247,7 @@ wp.SubmitXT(wpxt.Job{
     Options: map[string]interface{}{
         "kube": myk8sclient,
     },
-    Task: func(o wpxt.Options) wpxt.Response {
+    Task: func(o wpxt.Options) wpxt.Result {
         // access options here
         kubernetesclient := o["kube"]
         // ... do work with `kubernetesclient`

@@ -41,9 +41,9 @@ func newWithNJobs(nJobs, numWorkers int) *WorkerPoolXT {
 		sleepfor := time.Millisecond * time.Duration(time.Duration(randNum(5, 10)))
 		w.SubmitXT(Job{
 			Name: name,
-			Task: func(o Options) Response {
+			Task: func(o Options) Result {
 				time.Sleep(sleepfor)
-				return Response{Data: "from " + name}
+				return Result{Data: "from " + name}
 			},
 		})
 	}
@@ -54,20 +54,20 @@ func TestBasics(t *testing.T) {
 	wp := New(freshCtx(), defaultWorkers)
 	wp.SubmitXT(Job{
 		Name: "a",
-		Task: func(o Options) Response {
-			return Response{Data: true}
+		Task: func(o Options) Result {
+			return Result{Data: true}
 		},
 	})
 	wp.SubmitXT(Job{
 		Name: "b",
-		Task: func(o Options) Response {
-			return Response{Data: true}
+		Task: func(o Options) Result {
+			return Result{Data: true}
 		},
 	})
 	wp.SubmitXT(Job{
 		Name: "c",
-		Task: func(o Options) Response {
-			return Response{Error: errors.New("err")}
+		Task: func(o Options) Result {
+			return Result{Error: errors.New("err")}
 		},
 	})
 
@@ -90,9 +90,9 @@ func TestJobIsCancelledImmediately(t *testing.T) {
 	wp.SubmitXT(Job{
 		Name:    "a",
 		Context: ctx,
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			time.Sleep(errorAfterDuration)
-			return Response{Data: "from a"}
+			return Result{Data: "from a"}
 		},
 	})
 
@@ -123,18 +123,18 @@ func TestJobContextOverridesDefaultContext(t *testing.T) {
 
 	wp.SubmitXT(Job{
 		Name: "Using default ctx",
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			time.Sleep(time.Second)
-			return Response{Data: "OK"}
+			return Result{Data: "OK"}
 		},
 	})
 
 	wp.SubmitXT(Job{
 		Name:    "Using custom per job ctx",
 		Context: jobContextWeWantToOverrideWith,
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			time.Sleep(time.Second)
-			return Response{Data: "OK"}
+			return Result{Data: "OK"}
 		},
 	})
 
@@ -166,10 +166,10 @@ func TestTimeouts(t *testing.T) {
 	wp.SubmitXT(Job{
 		Name:    "my ctx job",
 		Context: oneMsTimeoutContext,
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			// Simulate long running task
 			time.Sleep(time.Second * 10)
-			return Response{Data: "I could be anything"}
+			return Result{Data: "I could be anything"}
 		},
 	})
 
@@ -192,16 +192,16 @@ func TestCancellingContext(t *testing.T) {
 	wp.SubmitXT(Job{
 		Name:    "j1",
 		Context: ctx,
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			time.Sleep(time.Millisecond * 10) // Sleep 10 sec
-			return Response{Data: "I will fail with context.Canceled"}
+			return Result{Data: "I will fail with context.Canceled"}
 		},
 	})
 
 	wp.SubmitXT(Job{
 		Name: "j2",
-		Task: func(o Options) Response {
-			return Response{Data: "I will not fail"}
+		Task: func(o Options) Result {
+			return Result{Data: "I will not fail"}
 		},
 	})
 
@@ -211,7 +211,7 @@ func TestCancellingContext(t *testing.T) {
 
 	results := wp.StopWaitXT()
 
-	errs, succs, expectedSuccs, expectedErrs := []Response{}, []Response{}, 1, 1
+	errs, succs, expectedSuccs, expectedErrs := []Result{}, []Result{}, 1, 1
 
 	for _, r := range results {
 		if r.Error != nil {
@@ -239,10 +239,10 @@ func TestSubmitWithSubmitXT_UsingStopWaitXT_Special(t *testing.T) {
 	})
 	wp.SubmitXT(Job{
 		Name: "From SubmitXT()",
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			time.Sleep(time.Millisecond * 1)
 			atomic.AddUint64(&totalResults, 1)
-			return Response{Data: "SubmitXT() after sleep"}
+			return Result{Data: "SubmitXT() after sleep"}
 		},
 	})
 	_ = wp.StopWaitXT()
@@ -261,10 +261,10 @@ func TestSubmitWithSubmitXT_UsingStopWait_Special(t *testing.T) {
 	})
 	wp.SubmitXT(Job{
 		Name: "From SubmitXT()",
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			time.Sleep(time.Millisecond * 1)
 			atomic.AddUint64(&totalResults, 1)
-			return Response{Data: "SubmitXT() after sleep"}
+			return Result{Data: "SubmitXT() after sleep"}
 		},
 	})
 	wp.StopWait()
@@ -282,9 +282,9 @@ func TestOverflow_Special(t *testing.T) {
 	for i := 0; i < 64; i++ {
 		wp.SubmitXT(Job{
 			Name: "test1",
-			Task: func(o Options) Response {
+			Task: func(o Options) Result {
 				<-releaseChan
-				return Response{}
+				return Result{}
 			},
 		})
 	}
@@ -400,8 +400,8 @@ func TestSubmitXT_HowToHandleErrors(t *testing.T) {
 
 	wp.SubmitXT(Job{ // Uses default timeout
 		Name: "Job 1 will pass",
-		Task: func(o Options) Response {
-			return Response{Data: "yay"}
+		Task: func(o Options) Result {
+			return Result{Data: "yay"}
 		}})
 
 	perJobContext, cncl := context.WithTimeout(freshCtx(), time.Duration(time.Millisecond*1))
@@ -409,19 +409,19 @@ func TestSubmitXT_HowToHandleErrors(t *testing.T) {
 	wp.SubmitXT(Job{ // Uses custom timeout
 		Name:    "Job 2 will timeout",
 		Context: perJobContext,
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			time.Sleep(time.Second * 20) // Simulate long running task
-			return Response{Data: "uhoh"}
+			return Result{Data: "uhoh"}
 		}})
 
 	wp.SubmitXT(Job{ // Or if you encounter an error within the code in your job
 		Name: "Job 3 will encounter an error",
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			err := fmt.Errorf("ErrorPretendException : something failed")
 			if err != nil {
-				return Response{Error: err}
+				return Result{Error: err}
 			}
-			return Response{Data: "uhoh"}
+			return Result{Data: "uhoh"}
 		}})
 	results := wp.StopWaitXT()
 	failed, succeeded := 0, 0
@@ -445,7 +445,7 @@ func TestResultCountEqualsJobCount(t *testing.T) {
 		ii := i
 		wp.SubmitXT(Job{
 			Name: fmt.Sprintf("Job %d", ii),
-			Task: func(o Options) Response { return Response{Data: fmt.Sprintf("Placeholder : %d", ii)} },
+			Task: func(o Options) Result { return Result{Data: fmt.Sprintf("Placeholder : %d", ii)} },
 		})
 	}
 	results := wp.StopWaitXT()
@@ -459,16 +459,16 @@ func TestRuntimeDuration(t *testing.T) {
 	wp := New(freshCtx(), defaultWorkers)
 	wp.SubmitXT(Job{
 		Name: "test",
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			time.Sleep(time.Second)
-			return Response{Data: "testing"}
+			return Result{Data: "testing"}
 		},
 	})
 
 	res := wp.StopWaitXT()
 	first := res[0]
-	if first.RuntimeDuration() == 0 {
-		t.Fatalf("Expected RuntimeDuration() to not equal 0")
+	if first.Duration() == 0 {
+		t.Fatalf("Expected Duration() to not equal 0")
 	}
 }
 
@@ -477,8 +477,8 @@ func TestName(t *testing.T) {
 	wp := New(freshCtx(), defaultWorkers)
 	wp.SubmitXT(Job{
 		Name: thename,
-		Task: func(o Options) Response {
-			return Response{Data: "testing"}
+		Task: func(o Options) Result {
+			return Result{Data: "testing"}
 		},
 	})
 
@@ -496,9 +496,9 @@ func TestDefaultOptions(t *testing.T) {
 	wp.WithOptions(opts)
 	wp.SubmitXT(Job{
 		Name: "testing default options",
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			// Set data to our opts myvar
-			return Response{Data: o[varname]}
+			return Result{Data: o[varname]}
 		},
 	})
 	res := wp.StopWaitXT()
@@ -513,17 +513,17 @@ func TestPerJobOptions(t *testing.T) {
 	wp := New(freshCtx(), defaultWorkers)
 	wp.SubmitXT(Job{
 		Name: "job 1",
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			// Set data to our opts myvar
-			return Response{Data: o["var"]}
+			return Result{Data: o["var"]}
 		},
 		Options: map[string]interface{}{"var": "job1value"},
 	})
 	wp.SubmitXT(Job{
 		Name: "job 2",
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			// Set data to our opts myvar
-			return Response{Data: o["var"]}
+			return Result{Data: o["var"]}
 		},
 		Options: map[string]interface{}{"var": "job2value"},
 	})
@@ -556,17 +556,17 @@ func TestPerJobOptionsOverrideDefaultOptions(t *testing.T) {
 	wp.WithOptions(opts)
 	wp.SubmitXT(Job{
 		Name: "job 1",
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			// Set data to our opts myvar
-			return Response{Data: o["var"]}
+			return Result{Data: o["var"]}
 		},
 		Options: map[string]interface{}{"var": "job1value"},
 	})
 	wp.SubmitXT(Job{
 		Name: "job 2",
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			// Set data to our opts myvar
-			return Response{Data: o["var"]}
+			return Result{Data: o["var"]}
 		},
 		Options: map[string]interface{}{"var": "job2value"},
 	})
@@ -599,9 +599,9 @@ func TestStopNow(t *testing.T) {
 	wp := New(freshCtx(), defaultWorkers)
 	wp.SubmitXT(Job{
 		Name: "job 1",
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			// Set data to our opts myvar
-			return Response{Data: "placeholder"}
+			return Result{Data: "placeholder"}
 		},
 	})
 	wp.stop(true)
@@ -614,15 +614,15 @@ func TestRetry(t *testing.T) {
 	expectedResultsLen := 2
 	wp.SubmitXT(Job{
 		Name: expectedName,
-		Task: func(o Options) Response {
-			return Response{Error: expectedError}
+		Task: func(o Options) Result {
+			return Result{Error: expectedError}
 		},
 		Retry: 3,
 	})
 	wp.SubmitXT(Job{
 		Name: "simulate_success",
-		Task: func(o Options) Response {
-			return Response{Data: "success"}
+		Task: func(o Options) Result {
+			return Result{Data: "success"}
 		},
 	})
 	results := wp.StopWaitXT()
@@ -645,9 +645,9 @@ func TestCancelDefaultContext(t *testing.T) {
 	for i := 0; i < totalJobs; i++ {
 		wp.SubmitXT(Job{
 			Name: "a",
-			Task: func(o Options) Response {
+			Task: func(o Options) Result {
 				time.Sleep(time.Second * 5)
-				return Response{Data: true}
+				return Result{Data: true}
 			},
 		})
 	}
@@ -682,9 +682,9 @@ func TestDeferDoesNotCancelJobImmediately(t *testing.T) {
 	wp.SubmitXT(Job{
 		Name:    "a",
 		Context: customContext,
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			time.Sleep(time.Millisecond * 200)
-			return Response{Data: "Done"}
+			return Result{Data: "Done"}
 		},
 	})
 
@@ -714,15 +714,15 @@ func TestTimeoutHappensBeforeRetry(t *testing.T) {
 		Context: ctx,
 		// 10 retries with a job runtime of 5ms means this job should take 50ms
 		// but it is set to timeout in 10ms
-		// We only want the response from the timeout error, not from the last retry
+		// We only want the result from the timeout error, not from the last retry
 		Retry: 10,
-		Task: func(o Options) Response {
+		Task: func(o Options) Result {
 			time.Sleep(time.Millisecond * 5)
 			errs := errors.New("test error")
 			if errs != nil {
-				return Response{Error: errs}
+				return Result{Error: errs}
 			}
-			return Response{Data: "from a"}
+			return Result{Data: "from a"}
 		},
 	})
 
@@ -732,9 +732,9 @@ func TestTimeoutHappensBeforeRetry(t *testing.T) {
 		t.Fatalf("Expected %d results : got %d", expectedResults, len(results))
 	}
 	to := timeout + timeout
-	if results[0].RuntimeDuration() > to {
+	if results[0].Duration() > to {
 		t.Fatalf("Retries over rode timeout! When a job has a timeout of 1 second with Retry of 5, but each retry takes" +
-			" .5 seconds, we don't want a reply from the last retry, we want only a response from the timeout.")
+			" .5 seconds, we don't want a reply from the last retry, we want only a result from the timeout.")
 	}
 }
 

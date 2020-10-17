@@ -11,23 +11,23 @@ import (
 type Job struct {
 	*jobMetadata
 	Name    string
-	Task    func(Options) Response
+	Task    func(Options) Result
 	Context context.Context
 	Options Options
 	Retry   int
 }
 
-// errResponse returns a new response based upon your error
-func (j *Job) errResponse(err error) Response {
-	return Response{
+// errResult returns a new result based upon your error
+func (j *Job) errResult(err error) Result {
+	return Result{
 		Error:    err,
 		duration: time.Since(j.startedAt),
 	}
 }
 
-// errResponseCtx creates a new response using the current ctx error
-func (j *Job) errResponseCtx() Response {
-	return j.errResponse(j.ctx.Err())
+// errResultCtx creates a new result using the current ctx error
+func (j *Job) errResultCtx() Result {
+	return j.errResult(j.ctx.Err())
 }
 
 // jobMetadata is mostly for organizational purposes. Holds misc data, etc... about each job
@@ -35,6 +35,6 @@ type jobMetadata struct {
 	backoff   backoff.BackOff
 	ctx       context.Context
 	done      context.CancelFunc
-	response  chan Response
+	result  chan Result
 	startedAt time.Time
 }

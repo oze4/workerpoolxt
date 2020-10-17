@@ -62,7 +62,7 @@ func (wp *WorkerPoolXT) do(job Job) {
 		todo = func() {
 			err := backoff.Retry(payload, job.backoff)
 			if err != nil {
-				job.response <- newResponseError(err, job.Name, job.startedAt)
+				job.response <- job.errResponse(err)
 			}
 		}
 	}
@@ -117,7 +117,7 @@ func (wp *WorkerPoolXT) getResult(job Job) {
 	case <-job.ctx.Done():
 		switch job.ctx.Err() {
 		default:
-			wp.responseChan <- newResponseError(job.ctx.Err(), job.Name, job.startedAt)
+			wp.responseChan <- job.errResponseCtx()
 		}
 	}
 }
@@ -180,7 +180,7 @@ func (wp *WorkerPoolXT) wrap(job Job) func() {
 	ctx, done := wp.getContext(job)
 
 	return func() {
-		job.metadata = &metadata{
+		job.jobMetadata = &jobMetadata{
 			ctx:       ctx,
 			done:      done,
 			response:  make(chan Response),
@@ -189,53 +189,5 @@ func (wp *WorkerPoolXT) wrap(job Job) func() {
 
 		go wp.do(job)
 		wp.getResult(job)
-	}
-}
-
-// Options hold misc options
-type Options map[string]interface{}
-
-// Job holds job data
-type Job struct {
-	*metadata
-	Name    string
-	Task    func(Options) Response
-	Context context.Context
-	Options Options
-	Retry   int
-}
-
-type metadata struct {
-	backoff   backoff.BackOff
-	ctx       context.Context
-	done      context.CancelFunc
-	response  chan Response
-	startedAt time.Time
-}
-
-// Response holds job results
-type Response struct {
-	Error    error
-	Data     interface{}
-	name     string
-	duration time.Duration
-}
-
-// RuntimeDuration returns the amount of time it took to run the job
-func (r *Response) RuntimeDuration() time.Duration {
-	return r.duration
-}
-
-// Name returns the job name
-func (r *Response) Name() string {
-	return r.name
-}
-
-// helper func
-func newResponseError(err error, jobName string, start time.Time) Response {
-	return Response{
-		Error:    err,
-		name:     jobName,
-		duration: time.Since(start),
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -23,6 +24,31 @@ var (
 	freshCtx       = func() context.Context { return context.Background() }
 	defaultWorkers = 10
 )
+
+func randNum(min, max int) int {
+	rand.Seed(time.Now().UnixNano())
+	return (rand.Intn(max-min+1) + min)
+}
+
+func makeDefaultWp() *WorkerPoolXT {
+	return New(freshCtx(), defaultWorkers)
+}
+
+func newWithNJobs(nJobs, numWorkers int) *WorkerPoolXT {
+	w := New(freshCtx(), numWorkers)
+	for i := 0; i < nJobs; i++ {
+		name := fmt.Sprintf("%d", i)
+		sleepfor := time.Millisecond * time.Duration(time.Duration(randNum(5, 10)))
+		w.SubmitXT(Job{
+			Name: name,
+			Task: func(o Options) Response {
+				time.Sleep(sleepfor)
+				return Response{Data: "from " + name}
+			},
+		})
+	}
+	return w
+}
 
 func TestBasics(t *testing.T) {
 	wp := New(freshCtx(), defaultWorkers)
@@ -709,5 +735,15 @@ func TestTimeoutHappensBeforeRetry(t *testing.T) {
 	if results[0].RuntimeDuration() > to {
 		t.Fatalf("Retries over rode timeout! When a job has a timeout of 1 second with Retry of 5, but each retry takes" +
 			" .5 seconds, we don't want a reply from the last retry, we want only a response from the timeout.")
+	}
+}
+
+func Test_100kJobs_1kWorkers_SleepBtwn5msAnd10msEach(t *testing.T) {
+	numjobs := 100000
+	numWorkers := 1000
+	wp := newWithNJobs(numjobs, numWorkers)
+	results := wp.StopWaitXT()
+	if len(results) != numjobs {
+		t.Fatalf("Expected %d : got %d", numjobs, len(results))
 	}
 }

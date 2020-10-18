@@ -50,21 +50,16 @@ func (p *WorkerPoolXT) WithOptions(o Options) {
 
 // do gets the appropriate payload and does it
 func (p *WorkerPoolXT) do(j Job) {
+	j.bo = p.getBackoff(j)
 	// Need to change how we call our payload if job is using retry
 	payload := p.newPayload(j)
 	// Job not using retry, just call what we were given
-	todo := func() { payload() }
-	// Job using retry
-	if j.bo != nil {
-		todo = func() {
-			err := backoff.Retry(payload, j.bo)
-			if err != nil {
-				j.result <- j.errResult(err)
-			}
-		}
+	if j.bo == nil {
+		payload()
+	} else {
+		// Job using retry, wrap our payload with backoff before calling
+		j.withRetry(payload)()
 	}
-	// Do the todo
-	todo()
 	j.done()
 }
 
@@ -72,9 +67,7 @@ func (p *WorkerPoolXT) do(j Job) {
 // TODO I would love a 'native' way to retry jobs, though!
 func (p *WorkerPoolXT) getBackoff(j Job) backoff.BackOff {
 	if j.Retry > 0 {
-		return backoff.WithMaxRetries(
-			backoff.NewExponentialBackOff(),
-			uint64(j.Retry))
+		return backoff.WithMaxRetries(backoff.NewExponentialBackOff(), uint64(j.Retry))
 	}
 	return nil
 }
@@ -102,21 +95,18 @@ func (p *WorkerPoolXT) getOptions(j Job) Options {
 // getResult reacts to a jobs context
 func (p *WorkerPoolXT) getResult(j Job) {
 	select {
-	// Have job result, feed to pool
-	case r := <-j.result:
+	case r := <-j.result: // Have job result, feed to pool
 		p.result <- r
 	case <-j.ctx.Done():
-		// "catch" any context errors
-		switch j.ctx.Err() {
+		switch j.ctx.Err() { // "catch" any context errors
 		default:
-			p.result <- j.errResultCtx()
+			p.result <- j.errResult(j.ctx.Err())
 		}
 	}
 }
 
 // newPayload converts our job into a func based upon all options we were given
 func (p *WorkerPoolXT) newPayload(j Job) func() error {
-	j.bo = p.getBackoff(j)
 	// If job using retry, we need to create our payload differently
 	return func() error {
 		o := p.getOptions(j)

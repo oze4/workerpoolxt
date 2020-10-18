@@ -25,9 +25,16 @@ func (j *Job) errResult(err error) Result {
 	}
 }
 
-// errResultCtx creates a new result using the current ctx error
-func (j *Job) errResultCtx() Result {
-	return j.errResult(j.ctx.Err())
+// withBackoff wraps our payload. Only need to do this because the job may be using retry.
+// otherwise we would just call the payload without checking
+func (j *Job) withRetry(payload func() error) func() {
+	// Job using retry, using backoff package to handle retries
+	return func() {
+		err := backoff.Retry(payload, j.bo)
+		if err != nil {
+			j.result <- j.errResult(err)
+		}
+	}
 }
 
 // metadata is mostly for organizational purposes. Holds misc data, etc... about each job

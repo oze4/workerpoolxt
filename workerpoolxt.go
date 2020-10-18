@@ -50,10 +50,9 @@ func (p *WorkerPoolXT) WithOptions(o Options) {
 
 // do gets the appropriate payload and does it
 func (p *WorkerPoolXT) do(j Job) {
-	j.bo = p.getBackoff(j)
 	// Need to change how we call our payload if job is using retry
-	payload := p.newPayload(j)
-	// Job not using retry, just call what we were given
+	j.bo = getBackoff(p, &j)
+	payload := newPayload(p, &j)
 	if j.bo == nil {
 		payload()
 	} else {
@@ -61,35 +60,6 @@ func (p *WorkerPoolXT) do(j Job) {
 		j.withRetry(payload)()
 	}
 	j.done()
-}
-
-// getBackoff determines if a job is using Retry
-// TODO I would love a 'native' way to retry jobs, though!
-func (p *WorkerPoolXT) getBackoff(j Job) backoff.BackOff {
-	if j.Retry > 0 {
-		return backoff.WithMaxRetries(backoff.NewExponentialBackOff(), uint64(j.Retry))
-	}
-	return nil
-}
-
-// getContext decides which context to use : default or job
-func (p *WorkerPoolXT) getContext(j Job) (context.Context, context.CancelFunc) {
-	if j.Context != nil {
-		return context.WithCancel(j.Context)
-	}
-	return context.WithCancel(p.context)
-}
-
-// getOptions decides which options to use : default or job
-func (p *WorkerPoolXT) getOptions(j Job) Options {
-	// job options should override default pool options
-	if j.Options != nil {
-		return j.Options
-	}
-	if p.options != nil {
-		return p.options
-	}
-	return nil
 }
 
 // getResult reacts to a jobs context
@@ -102,24 +72,6 @@ func (p *WorkerPoolXT) getResult(j Job) {
 		default:
 			p.result <- j.errResult(j.ctx.Err())
 		}
-	}
-}
-
-// newPayload converts our job into a func based upon all options we were given
-func (p *WorkerPoolXT) newPayload(j Job) func() error {
-	// If job using retry, we need to create our payload differently
-	return func() error {
-		o := p.getOptions(j)
-		r := j.Task(o)
-		// Only return error if job is using retry
-		if r.Error != nil && j.bo != nil {
-			return r.Error
-		}
-		r.duration = time.Since(j.startedAt)
-		r.name = j.Name
-		j.result <- r
-		// Return nil whether job is using retry or not
-		return nil
 	}
 }
 
@@ -153,7 +105,7 @@ func (p *WorkerPoolXT) stop(now bool) {
 
 // wrap generates the func that we pass to Submit.
 func (p *WorkerPoolXT) wrap(j Job) func() {
-	ctx, done := p.getContext(j)
+	ctx, done := getContext(p, &j)
 	// This is the func we ultimately pass to `workerpool`
 	return func() {
 		j.metadata = &metadata{
@@ -164,5 +116,52 @@ func (p *WorkerPoolXT) wrap(j Job) func() {
 		}
 		go p.do(j)
 		p.getResult(j)
+	}
+}
+
+// getBackoff determines if a job is using Retry
+// TODO I would love a 'native' way to retry jobs, though!
+func getBackoff(p *WorkerPoolXT, j *Job) backoff.BackOff {
+	if j.Retry > 0 {
+		return backoff.WithMaxRetries(backoff.NewExponentialBackOff(), uint64(j.Retry))
+	}
+	return nil
+}
+
+// getContext decides which context to use : default or job
+func getContext(p *WorkerPoolXT, j *Job) (context.Context, context.CancelFunc) {
+	if j.Context != nil {
+		return context.WithCancel(j.Context)
+	}
+	return context.WithCancel(p.context)
+}
+
+// getOptions decides which options to use : default or job
+func getOptions(p *WorkerPoolXT, j *Job) Options {
+	// job options should override default pool options
+	if j.Options != nil {
+		return j.Options
+	}
+	if p.options != nil {
+		return p.options
+	}
+	return nil
+}
+
+// newPayload converts our job into a func based upon all options we were given
+func newPayload(p *WorkerPoolXT, j *Job) func() error {
+	// If job using retry, we need to create our payload differently
+	return func() error {
+		o := getOptions(p, j)
+		r := j.Task(o)
+		// Only return error if job is using retry
+		if r.Error != nil && j.bo != nil {
+			return r.Error
+		}
+		r.duration = time.Since(j.startedAt)
+		r.name = j.Name
+		j.result <- r
+		// Return nil whether job is using retry or not
+		return nil
 	}
 }

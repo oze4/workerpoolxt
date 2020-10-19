@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff"
 	"github.com/gammazero/workerpool"
 )
 
@@ -18,6 +17,13 @@ func New(ctx context.Context, maxWorkers int) *WorkerPoolXT {
 		kill:       make(chan struct{}),
 	}
 	go p.processResults()
+	return p
+}
+
+// NewWithOptions creates a new WorkerPool with options
+func NewWithOptions(ctx context.Context, maxWorkers int, o Options) *WorkerPoolXT {
+	p := New(ctx, maxWorkers)
+	p.options = o
 	return p
 }
 
@@ -34,7 +40,7 @@ type WorkerPoolXT struct {
 
 // SubmitXT submits a job which you can get a result from
 func (p *WorkerPoolXT) SubmitXT(j Job) {
-	p.Submit(p.wrap(j))
+	p.Submit(p.wrap(&j))
 }
 
 // StopWaitXT gets results then kills the worker pool
@@ -43,32 +49,28 @@ func (p *WorkerPoolXT) StopWaitXT() (rs []Result) {
 	return p.results
 }
 
-// WithOptions sets default options for each job
-func (p *WorkerPoolXT) WithOptions(o Options) {
-	p.options = o
-}
-
-// do gets the appropriate payload and does it
-func (p *WorkerPoolXT) do(j Job) {
-	// Need to change how we call our payload if job is using retry
-	j.bo = getBackoff(p, &j)
-	payload := newPayload(p, &j)
-	if j.bo == nil {
-		payload()
-	} else {
-		// Job using retry, wrap our payload with backoff before calling
-		j.withRetry(payload)()
-	}
+// do converts our job into a Payload and does it
+func (p *WorkerPoolXT) do(j *Job) {
+	// Convert job to func and immediately invoke it
+	j.toFunc(p.options)()
 	j.done()
 }
 
-// getResult reacts to a jobs context
-func (p *WorkerPoolXT) getResult(j Job) {
+// getContext decides which context to use : default or job
+func (p *WorkerPoolXT) getContext(j *Job) (context.Context, context.CancelFunc) {
+	if j.Context != nil {
+		return context.WithCancel(j.Context)
+	}
+	return context.WithCancel(p.context)
+}
+
+// getResults sends job results to a channel
+func (p *WorkerPoolXT) getResult(j *Job) {
 	select {
-	case r := <-j.result: // Have job result, feed to pool
+	case r := <-j.result:
 		p.result <- r
 	case <-j.ctx.Done():
-		switch j.ctx.Err() { // "catch" any context errors
+		switch j.ctx.Err() {
 		default:
 			p.result <- j.errResult(j.ctx.Err())
 		}
@@ -104,8 +106,8 @@ func (p *WorkerPoolXT) stop(now bool) {
 }
 
 // wrap generates the func that we pass to Submit.
-func (p *WorkerPoolXT) wrap(j Job) func() {
-	ctx, done := getContext(p, &j)
+func (p *WorkerPoolXT) wrap(j *Job) func() {
+	ctx, done := p.getContext(j)
 	// This is the func we ultimately pass to `workerpool`
 	return func() {
 		j.metadata = &metadata{
@@ -114,54 +116,8 @@ func (p *WorkerPoolXT) wrap(j Job) func() {
 			result:    make(chan Result),
 			startedAt: time.Now(),
 		}
+
 		go p.do(j)
 		p.getResult(j)
-	}
-}
-
-// getBackoff determines if a job is using Retry
-// TODO I would love a 'native' way to retry jobs, though!
-func getBackoff(p *WorkerPoolXT, j *Job) backoff.BackOff {
-	if j.Retry > 0 {
-		return backoff.WithMaxRetries(backoff.NewExponentialBackOff(), uint64(j.Retry))
-	}
-	return nil
-}
-
-// getContext decides which context to use : default or job
-func getContext(p *WorkerPoolXT, j *Job) (context.Context, context.CancelFunc) {
-	if j.Context != nil {
-		return context.WithCancel(j.Context)
-	}
-	return context.WithCancel(p.context)
-}
-
-// getOptions decides which options to use : default or job
-func getOptions(p *WorkerPoolXT, j *Job) Options {
-	// job options should override default pool options
-	if j.Options != nil {
-		return j.Options
-	}
-	if p.options != nil {
-		return p.options
-	}
-	return nil
-}
-
-// newPayload converts our job into a func based upon all options we were given
-func newPayload(p *WorkerPoolXT, j *Job) func() error {
-	// If job using retry, we need to create our payload differently
-	return func() error {
-		o := getOptions(p, j)
-		r := j.Task(o)
-		// Only return error if job is using retry
-		if r.Error != nil && j.bo != nil {
-			return r.Error
-		}
-		r.duration = time.Since(j.startedAt)
-		r.name = j.Name
-		j.result <- r
-		// Return nil whether job is using retry or not
-		return nil
 	}
 }

@@ -492,8 +492,7 @@ func TestName(t *testing.T) {
 func TestDefaultOptions(t *testing.T) {
 	varname, varvalue := "myvar", "myval"
 	opts := map[string]interface{}{varname: varvalue}
-	wp := New(freshCtx(), defaultWorkers)
-	wp.WithOptions(opts)
+	wp := NewWithOptions(freshCtx(), defaultWorkers, opts)
 	wp.SubmitXT(Job{
 		Name: "testing default options",
 		Task: func(o Options) Result {
@@ -550,10 +549,9 @@ func TestPerJobOptions(t *testing.T) {
 }
 
 func TestPerJobOptionsOverrideDefaultOptions(t *testing.T) {
-	wp := New(freshCtx(), defaultWorkers)
-	// set default options so we can verify they were overwritten by per job options
 	opts := map[string]interface{}{"default": "value"}
-	wp.WithOptions(opts)
+	wp := NewWithOptions(freshCtx(), defaultWorkers, opts)
+	// set default options so we can verify they were overwritten by per job options
 	wp.SubmitXT(Job{
 		Name: "job 1",
 		Task: func(o Options) Result {

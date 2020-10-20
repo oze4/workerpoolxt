@@ -49,32 +49,12 @@ func (p *WorkerPoolXT) StopWaitXT() (rs []Result) {
 	return p.results
 }
 
-// do converts our job into a Payload and does it
-func (p *WorkerPoolXT) do(j *Job) {
-	// Convert job to func and immediately invoke it
-	j.toFunc(p.options)()
-	j.done()
-}
-
 // getContext decides which context to use : default or job
 func (p *WorkerPoolXT) getContext(j *Job) (context.Context, context.CancelFunc) {
 	if j.Context != nil {
 		return context.WithCancel(j.Context)
 	}
 	return context.WithCancel(p.context)
-}
-
-// getResults sends job results to a channel
-func (p *WorkerPoolXT) getResult(j *Job) {
-	select {
-	case r := <-j.result:
-		p.result <- r
-	case <-j.ctx.Done():
-		switch j.ctx.Err() {
-		default:
-			p.result <- j.errResult(j.ctx.Err())
-		}
-	}
 }
 
 // processResults listens for results on resultsChan
@@ -117,7 +97,12 @@ func (p *WorkerPoolXT) wrap(j *Job) func() {
 			startedAt: time.Now(),
 		}
 
-		go p.do(j)
-		p.getResult(j)
+		// Allow job options to override default pool options
+		if j.Options == nil {
+			j.Options = p.options
+		}
+
+		go j.runDone()
+		p.result <- j.getResult().(Result)
 	}
 }

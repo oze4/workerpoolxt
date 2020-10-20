@@ -49,14 +49,6 @@ func (p *WorkerPoolXT) StopWaitXT() (rs []Result) {
 	return p.results
 }
 
-// getContext decides which context to use : default or job
-func (p *WorkerPoolXT) getContext(j *Job) (context.Context, context.CancelFunc) {
-	if j.Context != nil {
-		return context.WithCancel(j.Context)
-	}
-	return context.WithCancel(p.context)
-}
-
 // processResults listens for results on resultsChan
 func (p *WorkerPoolXT) processResults() {
 	for {
@@ -87,15 +79,15 @@ func (p *WorkerPoolXT) stop(now bool) {
 
 // wrap generates the func that we pass to Submit.
 func (p *WorkerPoolXT) wrap(j *Job) func() {
-	ctx, done := p.getContext(j)
 	// This is the func we ultimately pass to `workerpool`
 	return func() {
-		j.metadata = &metadata{
-			ctx:       ctx,
-			done:      done,
-			result:    make(chan Result),
-			startedAt: time.Now(),
+		if j.Context == nil {
+			j.Context = p.context
 		}
+
+		j.childCtx, j.done = context.WithCancel(j.Context)
+		j.result = make(chan Result)
+		j.startedAt = time.Now()
 
 		// Allow job options to override default pool options
 		if j.Options == nil {
@@ -103,6 +95,6 @@ func (p *WorkerPoolXT) wrap(j *Job) func() {
 		}
 
 		go j.runDone()
-		p.result <- j.getResult().(Result)
+		p.result <- j.getResult()
 	}
 }

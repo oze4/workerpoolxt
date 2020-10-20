@@ -81,6 +81,11 @@ func (p *WorkerPoolXT) stop(now bool) {
 func (p *WorkerPoolXT) wrap(j *Job) func() {
 	// This is the func we ultimately pass to `workerpool`
 	return func() {
+		// Allow job options to override default pool options
+		if j.Options == nil {
+			j.Options = p.options
+		}
+
 		if j.Context == nil {
 			j.Context = p.context
 		}
@@ -88,11 +93,6 @@ func (p *WorkerPoolXT) wrap(j *Job) func() {
 		j.childCtx, j.done = context.WithCancel(j.Context)
 		j.result = make(chan Result)
 		j.startedAt = time.Now()
-
-		// Allow job options to override default pool options
-		if j.Options == nil {
-			j.Options = p.options
-		}
 
 		go j.runDone()
 		p.result <- j.getResult()

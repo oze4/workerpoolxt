@@ -26,6 +26,22 @@
   Worker pool library that extends <a href="https://github.com/gammazero/workerpool">https://github.com/gammazero/workerpool</a>
 </p>
 
+# Note
+
+***If you are using context, please use with caution in production!!***
+
+ - [Go Playground](https://play.golang.org/p/pYGz7Ryj8VQ) which shows the area of concern
+ 
+ - Wonderful explanation from the author of `workerpool`:
+ 
+>Once a goroutine is started, there no way to kill it unless there is something inside that goroutine that is looking for a signal, waiting on a context or channel, etc. In the case of workerpool, and workerpoolxt, the pool is providing the goroutine and calling someone else's function in that goroutine. There is no telling if that function will ever return and allow your goroutine to finish or run another task. The only thing that workerpoolxt can do is to run the task function in another goroutine and wait for the task to finish or for a timer to expire or some other signal to give up waiting (such as context being canceled). When this signal to give up happens, the worker goroutine can return and report an error, but the task goroutine is still running somewhere in the background and may or may not ever finish. All you have done is given up waiting for it to do so.
+
+>The danger of letting this happen is that you could build up a number of abandoned goroutines that are still running, which defeats the purpose of workerpool (to limit the amount of concurrency). A way to deal with this is to wait for the task function to finish, and when the signal to give up waiting happens, return an error on a result channel and then go back to waiting (possibly forever) on the task function. This way a pool goroutine is still in use and not available to run more tasks until the task actually completes.
+
+>Another idea is to expose the result channel directly to the caller. This way they can wait for a result to show up for a much or as little as they want, and can wait in a select along with many other channels that. The can give up waiting whenever they want, and even go back and check the result channel later if they want. The caller can certainly just put their own result channel into their task function, but the added value of workerpoolxt is that when the result appears, they can also get the other information like task execution time from the result.
+
+>\- @gammazero github.com/gammazero
+
 ## Synopsis
 
   - Allows you to retain access to underlying `*WorkerPool` object as if you imported `workerpool` directly

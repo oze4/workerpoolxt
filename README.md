@@ -28,7 +28,7 @@
 
 # Note
 
-***If you are using context, please use with caution in production!!***
+***If you are using context, please use with caution in production!! [See here for more info](https://github.com/oze4/workerpoolxt/issues/12#issuecomment-716794599)***
 
  - [Go Playground](https://play.golang.org/p/pYGz7Ryj8VQ) which shows the area of concern
  
